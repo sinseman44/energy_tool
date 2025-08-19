@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import json, os, sys, ssl, csv, argparse
 from pathlib import Path
-from datetime import datetime
-from websocket import create_connection
 
 from sources.ha_ws_api import HAWebSocketSource
 from sources.csv_file_api import CSVSource
@@ -212,6 +210,7 @@ def run_simu(cfg: dict):
     EFF = cfg["BATTERY_EFF"]
     START = cfg["START"]
     END = cfg["END"]
+    PV_ACTUAL_KW = cfg["PV_ACTUAL_KW"]
 
     if not Path(IN_CSV).exists():
         print(f"[ERREUR] Fichier horaire introuvable: {IN_CSV}\nLance d'abord --mode report.")
@@ -230,7 +229,7 @@ def run_simu(cfg: dict):
 
     ui.summary("Situation actuelle", base_stats["pv_tot"], base_stats["load_tot"],
            base_stats["import_tot"], base_stats["export_tot"],
-           base_stats["ac"], base_stats["tc"], START, END)
+           base_stats["ac"], base_stats["tc"], START, END, PV_ACTUAL_KW)
 
     # combinaisons
     results=[]
@@ -254,8 +253,8 @@ def run_simu(cfg: dict):
     ui.passing(passing, TARGET_AC_MIN, TARGET_AC_MAX, TARGET_TC_MIN, limit=10)
     if passing:
         # déjà triés dans ton script : passer passing[0]
-        ui.best(passing[0])
-    #print(f"\nRésultats détaillés écrits dans {OUT_CSV}")
+        ui.best(passing[0], cfg["PV_ACTUAL_KW"])
+    ui.definitions()
 
 # =========================
 # CLI

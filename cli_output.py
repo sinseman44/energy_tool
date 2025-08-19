@@ -92,8 +92,8 @@ class ConsoleUI:
             table.add_column("Batterie", justify="right")
             table.add_column("PV (kWh)", justify="right")
             table.add_column("Conso (kWh)", justify="right")
-            table.add_column("Import", justify="right")
-            table.add_column("Export", justify="right")
+            table.add_column("Import (kWh)", justify="right")
+            table.add_column("Export (kWh)", justify="right")
             table.add_column("AC %", justify="right", style="cyan")
             table.add_column("TC %", justify="right", style="magenta")
             for fct, b, st in passing[:limit]:
@@ -117,13 +117,29 @@ class ConsoleUI:
                       f"{st['import_tot']:>3.0f} | {st['export_tot']:>3.0f} | "
                       f"{st['ac']:>5.1f} | {st['tc']:>5.1f}")
 
-    def best(self, best_tuple):
-        """best_tuple = (pv_factor, battery_kWh, stats_dict)"""
+    def best(self, best_tuple, pv_act):
+        """
+            best_tuple = (pv_factor, battery_kWh, stats_dict)
+        """
         fct, b, st = best_tuple
         msg = (f"➡️  Meilleur compromis\n"
-               f"PV ×{fct:g}, Batterie {int(b)} kWh\n"
+               f"PV ×{fct:g} = {fct * pv_act} kWc, Batterie {int(b)} kWh\n"
                f"AC={st['ac']:.1f} %, TC={st['tc']:.1f} %")
         if self.has_rich:
             self.console.print(Panel.fit(msg, border_style="cyan", title="Sélection"))
         else:
             print("\n[Sélection] " + msg)
+            
+    def definitions(self):
+        """ 
+        	Definitions
+        """
+        msg = (
+            "[bold]* Autoconsommation (AC)[/bold] = part de la production PV consommée directement (charges) et/ou via la batterie\n"
+            "[bold]* Taux de couverture (TC)[/bold] = part de la consommation totale couverte par ton PV (direct + batterie)"
+        )
+        if self.has_rich:
+            self.console.print(msg)
+        else:
+            print(msg.replace("[bold]", "").replace("[/bold]", ""))
+            
