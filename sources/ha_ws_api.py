@@ -3,13 +3,24 @@ from datetime import datetime
 from websocket import create_connection
 from typing import List, Dict
 from .base import EnergySource
+from datetime import datetime, timezone
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except ImportError:
+    ZoneInfo = None
+
+LOCAL_TZ = ZoneInfo("Europe/Paris") if ZoneInfo else None
 
 def _recv_json(ws): 
-    """ """ 
+    """ 
+    """ 
     return json.loads(ws.recv())
 
-def _wait_result(ws, expect_id):
-    """ """    
+def _wait_result(ws, 
+                 expect_id,
+                 ):
+    """ 
+    """    
     while True:
         msg = _recv_json(ws)
         if msg.get("type") == "result" and msg.get("id") == expect_id:
@@ -33,22 +44,38 @@ def _ts_to_iso_min(ts):
         ms epoch -> "YYYY-MM-DD HH:MM"
     """
     if isinstance(ts, (int, float)):
-        return datetime.utcfromtimestamp(ts/1000.0).strftime("%Y-%m-%d %H:%M")
+        dt = datetime.fromtimestamp(ts / 1000.0, tz=timezone.utc)
+        if LOCAL_TZ:
+            dt = dt.astimezone(LOCAL_TZ)
+        return dt.strftime("%Y-%m-%d %H:%M")
     try:
-        dt = datetime.fromisoformat(str(ts).replace("Z","+00:00"))
+        # Si HA renvoie déjà un ISO8601 → on parse et on convertit en local
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        if LOCAL_TZ:
+            dt = dt.astimezone(LOCAL_TZ)
         return dt.strftime("%Y-%m-%d %H:%M")
     except Exception:
         return str(ts)[:16]
 
-def _fetch_change_or_sum(ws, entity, start_iso, end_iso, req_id, period="hour"):
+def _fetch_change_or_sum(ws, 
+                         entity, 
+                         start_iso, 
+                         end_iso, 
+                         req_id, 
+                         period="hour",
+                         ):
     """
         1) essaie types=['change'] -> kWh sur l'heure
         2) sinon types=['sum'] (cumul) -> on fera diff côté Python
     """
     # 1) CHANGE
-    req = {"id": req_id, "type": "recorder/statistics_during_period",
-           "start_time": start_iso, "end_time": end_iso,
-           "statistic_ids": [entity], "period": period, "types": ["change"]}
+    req = {"id": req_id, 
+           "type": "recorder/statistics_during_period",
+           "start_time": start_iso, 
+           "end_time": end_iso,
+           "statistic_ids": [entity], 
+           "period": period, 
+           "types": ["change"]}
     ws.send(json.dumps(req))
     resp = _wait_result(ws, req_id)
     if not resp.get("success"):
@@ -66,7 +93,9 @@ def _fetch_change_or_sum(ws, entity, start_iso, end_iso, req_id, period="hour"):
     pts = [p for p in _normalize_result(resp.get("result")) if isinstance(p, dict)]
     return pts, "sum"
 
-def _cumul_to_diffs(points, value_key):
+def _cumul_to_diffs(points, 
+                    value_key,
+                    ):
     """
         # trie, fait la différence successive (>=0)
     """
@@ -106,7 +135,13 @@ class HAWebSocketSource(EnergySource):
     """
 
     """
-    def __init__(self, base_url: str, token: str, pv_entity: str, load_entity: str, ssl_verify: bool = True):
+    def __init__(self, 
+                 base_url: str, 
+                 token: str, 
+                 pv_entity: str, 
+                 load_entity: str, 
+                 ssl_verify: bool = True,
+                 ):
         """
             Constructor
         """
@@ -116,7 +151,10 @@ class HAWebSocketSource(EnergySource):
         self.load_entity = load_entity
         self.ssl_verify = ssl_verify
 
-    def get_hourly_pv_load(self, start_iso: str, end_iso: str) -> List[Dict]:
+    def get_hourly_pv_load(self, 
+                           start_iso: str, 
+                           end_iso: str,
+                           ) -> List[Dict]:
         """
         """
         sslopt = None
