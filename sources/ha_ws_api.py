@@ -11,24 +11,43 @@ except ImportError:
 
 LOCAL_TZ = ZoneInfo("Europe/Paris") if ZoneInfo else None
 
-def _recv_json(ws): 
-    """ 
+def _recv_json(ws: any) -> dict: 
+    """
+    Lit un message JSON depuis le WS et le décode.
+    Args:
+        ws: WebSocket connecté
+    Raises:
+        Exception: en cas d'erreur de réception ou de décodage
+    Returns:
+        dict: message JSON décodé
     """ 
     return json.loads(ws.recv())
 
-def _wait_result(ws, 
-                 expect_id,
-                 ):
-    """ 
+def _wait_result(ws: any, 
+                 expect_id: int,
+                 ) -> dict:
+    """
+    Attend un message de type 'result' avec l'ID attendu.
+    Args:
+        ws: WebSocket connecté
+        expect_id: ID attendu dans le message 'result'
+    Raises:
+        Exception: en cas d'erreur de réception ou de décodage
+    Returns:
+        dict: message JSON décodé de type 'result' avec l'ID attendu
     """    
     while True:
         msg = _recv_json(ws)
         if msg.get("type") == "result" and msg.get("id") == expect_id:
             return msg
 
-def _normalize_result(result):
+def _normalize_result(result: any) -> list:
     """
-        retourne une liste de points dict depuis recorder/statistics_during_period
+    retourne une liste de points dict depuis recorder/statistics_during_period
+    Args:
+        result: résultat brut du WS
+    Returns:
+        list: liste de points dict
     """
     if not result or isinstance(result, int): 
         return []
@@ -39,9 +58,15 @@ def _normalize_result(result):
         return next(iter(result.values()), [])
     return []
 
-def _ts_to_iso_min(ts):
+def _ts_to_iso_min(ts: any) -> str:
     """
-        ms epoch -> "YYYY-MM-DD HH:MM"
+        Convertit un timestamp (ms ou ISO) en "YYYY-MM-DD HH:MM" locale
+    Args:
+        ts (int|float|str): timestamp en ms ou chaîne ISO
+    Returns:
+        str: date/heure formatée "YYYY-MM-DD HH:MM"
+    Raises:
+        None
     """
     if isinstance(ts, (int, float)):
         dt = datetime.fromtimestamp(ts / 1000.0, tz=timezone.utc)
@@ -57,16 +82,27 @@ def _ts_to_iso_min(ts):
     except Exception:
         return str(ts)[:16]
 
-def _fetch_change_or_sum(ws, 
-                         entity, 
-                         start_iso, 
-                         end_iso, 
-                         req_id, 
-                         period="hour",
-                         ):
+def _fetch_change_or_sum(ws: any, 
+                         entity: str, 
+                         start_iso: str, 
+                         end_iso: str, 
+                         req_id: int = 1, 
+                         period: str = "hour",
+                         ) -> tuple[list, str]:
     """
-        1) essaie types=['change'] -> kWh sur l'heure
-        2) sinon types=['sum'] (cumul) -> on fera diff côté Python
+        Tente de récupérer les points horaires en 'change' (delta) ou 'sum' (cumul)
+        depuis recorder/statistics_during_period.
+    Args:
+        ws: WebSocket connecté
+        entity (str): entity_id de la statistique HA
+        start_iso (str): date/heure ISO début (inclus)  "YYYY-MM-DDTHH:MM:SS"
+        end_iso (str): date/heure ISO fin (exclus)      "YYYY-MM-DDTHH:MM:SS"
+        req_id (int): ID de la requête WS
+        period (str): période de l'agrégation ("hour", "day", ...)
+    Raises:
+        RuntimeError: si la requête WS échoue
+    Returns:
+        tuple: (list des points dict, "change"|"sum")
     """
     # 1) CHANGE
     req = {"id": req_id, 
@@ -93,13 +129,30 @@ def _fetch_change_or_sum(ws,
     pts = [p for p in _normalize_result(resp.get("result")) if isinstance(p, dict)]
     return pts, "sum"
 
-def _cumul_to_diffs(points, 
-                    value_key,
-                    ):
+def _cumul_to_diffs(points: list, 
+                    value_key: str,
+                    ) -> dict:
     """
-        # trie, fait la différence successive (>=0)
+        Convertit une liste de points cumulés en deltas horaires.
+        Retourne dict { 'YYYY-MM-DD HH:MM': kWh_sur_l_heure }
+    Args:
+        points (list): liste de points dict avec 'start' et value_key
+        value_key (str): clé du cumul dans les points ("sum", "total", ...)
+    Returns:
+        dict: dict des deltas horaires
+    Raises:
+        None
     """
-    def key_ts(p):
+    def key_ts(p: dict) -> int:
+        """ 
+        clé de tri par timestamp
+        Args:
+            p (dict): point avec 'start'
+        Returns:
+            int: timestamp en ms
+        Raises:
+            None
+        """
         t = p.get("start")
         if isinstance(t,(int,float)): return int(t)
         try:
@@ -114,9 +167,17 @@ def _cumul_to_diffs(points,
         out[ts] = diff; prev = v
     return out
 
-def _points_to_changes(points):
+def _points_to_changes(points: list) -> dict:
     """
-        retourne dict { 'YYYY-MM-DD HH:MM': kWh_sur_l_heure }
+    Convertit une liste de points dict en deltas horaires.
+    Si les points ont une clé 'change', on l'utilise. Sinon on convertit les 'sum' en deltas.
+    Retourne dict { 'YYYY-MM-DD HH:MM': kWh_sur_l_heure }
+    Args:
+        points (list): liste de points dict avec 'start' et 'change' ou 'sum'
+    Returns:
+        dict: dict des deltas horaires
+    Raises:
+        None
     """
     if not points:
         return {}
@@ -133,7 +194,17 @@ def _points_to_changes(points):
 
 class HAWebSocketSource(EnergySource):
     """
-
+        Source de données PV/LOAD depuis Home Assistant via WebSocket API.
+        Args:
+            base_url (str): URL du WS (ws:// ou wss://)
+            token (str): token d'accès long-lived
+            pv_entity (str): entity_id de la statistique PV
+            load_entity (str): entity_id de la statistique LOAD
+            ssl_verify (bool): si True, vérifie le certificat SSL (défaut: True)
+        Raises:
+            RuntimeError: en cas d'erreur de connexion ou d'authentification
+        Returns: 
+            None
     """
     def __init__(self, 
                  base_url: str, 
@@ -143,7 +214,15 @@ class HAWebSocketSource(EnergySource):
                  ssl_verify: bool = True,
                  ):
         """
-            Constructor
+        Constructor
+        Args:
+            base_url (str): URL du WS (ws:// ou wss://)
+            token (str): token d'accès long-lived
+            pv_entity (str): entity_id de la statistique PV
+            load_entity (str): entity_id de la statistique LOAD
+            ssl_verify (bool): si True, vérifie le certificat SSL (défaut: True)
+        Raises:
+            None
         """
         self.base_url = base_url
         self.token = token
@@ -156,6 +235,16 @@ class HAWebSocketSource(EnergySource):
                            end_iso: str,
                            ) -> List[Dict]:
         """
+        Fournit des deltas horaires (kWh/h) pour PV et LOAD
+        Retour: liste de dicts alignés par 'date' "YYYY-MM-DD HH:MM"
+            [{"date": "...", "pv": float, "load": float}, ...]
+        Args:
+            start_iso (str): date/heure ISO début (inclus)  "YYYY-MM-DDTHH:MM:SS"
+            end_iso (str): date/heure ISO fin (exclus)      "YYYY-MM-DDTHH:MM:SS"
+        Raises:
+            RuntimeError: en cas d'erreur de connexion ou d'authentification
+        Returns: 
+            List[Dict]: liste des données horaires
         """
         sslopt = None
         if self.base_url.startswith("wss://"):
@@ -177,4 +266,6 @@ class HAWebSocketSource(EnergySource):
         pv_hour   = _points_to_changes(pv_pts)
         load_hour = _points_to_changes(load_pts)
         hours = sorted(set(pv_hour) | set(load_hour))
-        return [{"date": h, "pv": float(pv_hour.get(h,0.0)), "load": float(load_hour.get(h,0.0))} for h in hours]
+        return [{"date": h,
+                 "pv": float(pv_hour.get(h,0.0)),
+                 "load": float(load_hour.get(h,0.0))} for h in hours]

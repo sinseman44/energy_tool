@@ -15,6 +15,18 @@ class EnlightenSource(EnergySource):
         self.site_id = site_id
 
     def get_hourly_pv_load(self, start_iso: str, end_iso: str) -> List[Dict]:
+        """ 
+        Fournit des deltas horaires (kWh/h) pour PV et LOAD
+        Retour: liste de dicts alignés par 'date' "YYYY-MM-DD HH:MM"
+            [{"date": "...", "pv": float, "load": float}, ...]
+        Args:
+            start_iso (str): date/heure ISO début (inclus)  "YYYY-MM-DDTHH:MM:SS"
+            end_iso (str): date/heure ISO fin (exclus)      "YYYY-MM-DDTHH:MM:SS"
+        Raises:
+            NotImplementedError: méthode non encore implémentée
+        Returns: 
+            List[Dict]: liste des données horaires
+        """
         # TODO:
         # 1) appeler /systems/{system_id}/energy_lifetime ou /energy_day ? (selon dispo)
         # 2) reconstituer une série horaire en kWh/h

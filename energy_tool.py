@@ -35,7 +35,11 @@ DEFAULTS = {
 
 ui = ConsoleUI()
 
-def save_sim_detail(csv_path: str, sim_rows: list, date_key: str = "date", context=None) -> None:
+def save_sim_detail(csv_path: str, 
+                    sim_rows: list, 
+                    date_key: str = "date", 
+                    context=None,
+                    ) -> None:
     """
         Écrit un CSV horaire détaillé pour un scénario unique.
         `sim_rows` est la liste de dicts renvoyée par `simulate_battery(...)`,
@@ -52,6 +56,20 @@ def save_sim_detail(csv_path: str, sim_rows: list, date_key: str = "date", conte
 
         - date peut être str ("YYYY-MM-DD HH:MM") ou datetime -> converti en ISO minutes
         - les valeurs sont arrondies proprement
+        - les champs meta sont répétés sur chaque ligne
+
+    Args:
+        csv_path (str): chemin du fichier CSV de sortie
+        sim_rows (list): liste des lignes horaires simulées
+        date_key (str, optional): clé pour la date dans chaque ligne. Defaults to "date".
+        context (_type_, optional): contexte à ajouter en méta. Defaults to None.
+
+    Returns:
+        None
+
+    Raises:
+        IOError: en cas de problème d'écriture du fichier
+        
     """
     fields = [
         "date", "pv", "load", "pv_direct", "pv_to_batt",
@@ -62,6 +80,15 @@ def save_sim_detail(csv_path: str, sim_rows: list, date_key: str = "date", conte
     all_fields = fields + meta_fields
     
     def _fmt_date(dt):
+        """ Formatte une date en ISO "YYYY-MM-DD HH:MM"
+
+        Args:
+            dt (str|datetime): date à formater
+        Returns:
+            str: date formatée
+        Raises:
+            ValueError: si la date n'est pas au format attendu
+        """
         if isinstance(dt, datetime):
             return dt.strftime("%Y-%m-%d %H:%M")
         s = str(dt)
@@ -100,7 +127,6 @@ def save_sim_detail(csv_path: str, sim_rows: list, date_key: str = "date", conte
             }
             w.writerow(row)
 
-
 def to_utc_iso(s: str, 
                tz_name: str = "Europe/Paris",
                ) -> str:
@@ -109,6 +135,16 @@ def to_utc_iso(s: str,
         - Ex: "2025-06-01T00:00:00" (local) -> "2025-05-31T22:00:00Z" en été
         - Ex: "2025-06-01T00:00:00+02:00" -> converti en Z
         - Ex: "2025-06-01T00:00:00Z" -> inchangé
+        - Ex: "2025-06-01 00:00" -> "2025-05-31T22:00:00Z" en été
+        - Ex: "" -> ""
+        - Ex: None -> None
+    Args:
+        s (str): date en ISO locale ou tz-aware
+        tz_name (str, optional): nom de la timezone locale si `s` est naïf. Defaults to "Europe/Paris".
+    Returns:
+        str: date en ISO UTC (avec 'Z'), ou chaîne vide si entrée vide
+    Raises:
+        RuntimeError: si `s` est naïf et zoneinfo indisponible
     """
     s = (s or "").strip()
     if not s:
@@ -124,8 +160,14 @@ def to_utc_iso(s: str,
     dt_utc = dt.astimezone(timezone.utc)
     return dt_utc.isoformat().replace("+00:00", "Z")
 
-def aggregate_daily(sim_rows):
+def aggregate_daily(sim_rows:list) -> dict:
     """
+        Agrège les résultats horaires en journalier.
+        Renvoie un dict { "YYYY-MM-DD": {pv, load, imp, exp, pv_direct, batt_to_load, pv_to_batt} }
+    Args:
+        sim_rows (list): liste des lignes horaires simulées
+    Returns:
+        dict: agrégation journalière
     """
     day = defaultdict(lambda: {"pv":0.0,
                                 "load":0.0,
@@ -145,22 +187,48 @@ def aggregate_daily(sim_rows):
         day[d]["pv_to_batt"]   += r.get("pv_to_batt", 0.0)
     return dict(sorted(day.items()))
 
-def _as_float(x, name):
-    """
+def _as_float(x:int or float, name:str) -> float:
+    """ Coercition d'un float
+    Args:
+        x (int or float): valeur à convertir
+        name (str): nom du paramètre (pour message d'erreur)
+    Returns:
+        float: valeur convertie en float
+    Raises:
+        ValueError: si x ne peut être converti en float
     """
     try: return float(x)
     except: raise ValueError(f"Paramètre '{name}' doit être un nombre (float), reçu: {x!r}")
 
-def _as_list_float(x, name):
-    """
+def _as_list_float(x:list, 
+                   name:str,
+                   ) -> list:
+    """ Coercition d'une liste de float
+    Args:
+        x (list): _description_
+        name (str): nom du paramètre (pour message d'erreur)
+    Returns:
+        list: liste de float
+    Raises:
+        ValueError: si x n'est pas une liste ou si un élément ne peut être converti en float
     """
     if not isinstance(x, list):
         raise ValueError(f"Paramètre '{name}' doit être une liste de nombres")
     return [float(v) for v in x]
 
 def load_config(path: Path) -> dict:
+    """ Charge la configuration JSON, applique les valeurs par défaut et vérifie les champs obligatoires.
+
+    Args:
+        path (Path): chemin vers le fichier JSON
+
+    Raises:
+        ValueError: si des champs obligatoires sont manquants ou mal formés
+
+    Returns:
+        dict: configuration complète
     """
-    """
+    
     if not path.exists():
         print(f"[ERREUR] Fichier de config introuvable: {path.resolve()}")
         sys.exit(1)
@@ -189,8 +257,18 @@ def load_config(path: Path) -> dict:
     return cfg
 
 
-def make_source(cfg, args):
-    """
+def make_source(cfg: dict,
+               args: argparse.Namespace = None,
+               ) -> object:
+    """ sources de données suivant l'argument passé en paramètre.
+
+    Args:
+        cfg (dict): configuration chargée via `load_config()`
+        args (argparse.Namespace, optional): paramètres passés au script. Defaults to None.
+    Raises:
+        ValueError: _description_
+    Returns:
+        object: _description_
     """
     if args.source == "ha_ws":
         return HAWebSocketSource(
@@ -215,7 +293,25 @@ def make_source(cfg, args):
 # =========================
 # REPORT MODE
 # =========================
-def run_report(cfg: dict, args):
+def run_report(cfg: dict,
+               args: argparse.Namespace = None,
+               ) -> None:
+    """ 
+        Lancement du rapport d'import/export/autoconsommation.
+        1) collecte via source
+        2) calcul import/export/autoconsommation
+        3) écriture CSV horaire
+        4) écriture CSV journalier
+        5) affichage résumé
+
+    Args:
+        cfg (dict): configuration chargée
+        args (argparse.Namespace, optional): paramètres passés au script. Defaults to None.
+    Returns:
+        None
+    Raises:
+        RuntimeError: en cas d'erreur critique
+    """
     BASE_URL = cfg["BASE_URL"]
     TOKEN = cfg["TOKEN"]
     PV_ENTITY = cfg["PV_ENTITY"]
@@ -274,26 +370,86 @@ def run_report(cfg: dict, args):
     ac = (pv_used / pv_tot * 100) if pv_tot>0 else 0
     tc = (pv_used / load_tot * 100) if load_tot>0 else 0
 
-    ui.summary("Situation actuelle", pv_tot, load_tot, imp_tot, exp_tot, ac, tc, START, END, PV_ACTUAL_KW)
+    ui.summary("Situation actuelle", 
+               pv_tot, 
+               load_tot, 
+               imp_tot, 
+               exp_tot, 
+               ac, 
+               tc, 
+               START, 
+               END, 
+               PV_ACTUAL_KW)
 
 # =========================
 # SIMULATION MODE
 # =========================
-def compute_stats(rows):
+def compute_stats(rows:list) -> dict:
+    """
+        Calcule les statistiques globales sur une liste de lignes horaires
+        contenant au minimum 'pv' et 'load', optionnellement 'export' et 'import'.
+    Args:
+        rows (list): liste des lignes horaires [{'date', 'pv', 'load', 'export'?, 'import'?}]
+    Returns:
+        dict: {pv_tot, load_tot, import_tot, export_tot, ac, tc}
+    where:
+            pv_tot      : production PV totale (kWh)
+            load_tot    : consommation totale (kWh)
+            import_tot  : import total (kWh)
+            export_tot  : export total (kWh)
+            ac          : autoconsommation (%)
+            tc          : taux de couverture (%)
+    """
+    eps = 1e-9
+
     pv = sum(r["pv"] for r in rows)
     load = sum(r["load"] for r in rows)
     exp = sum(r.get("export",0.0) for r in rows)
     imp = sum(r.get("import",0.0) for r in rows)
-    pv_used = pv - exp
-    ac = (pv_used / pv * 100) if pv>0 else 0.0
-    tc = (pv_used / load * 100) if load>0 else 0.0
-    return {"pv_tot":pv, "load_tot":load, "import_tot":imp, "export_tot":exp, "ac":ac, "tc":tc}
+    # PV réellement utilisé par le foyer (direct + via batterie)
+    pv_used = max(0.0, pv - exp)
+    
+    # Bornes de sécurité (imprécisions / incohérences)
+    pv_used_capped_for_tc = min(pv_used, load)             # ne peut pas couvrir plus que la conso
+    pv_used_capped_for_ac = min(pv_used, pv)               # ne peut pas dépasser la production
 
-def simulate_pv_scale(rows, factor):
-    return [{"date": r["date"], "pv": r["pv"]*factor, "load": r["load"]} for r in rows]
+    # Pourcentage AC et TC (bornés à [0,100])
+    ac = 100.0 * pv_used_capped_for_ac / max(pv, eps) if pv > eps else 0.0
+    tc = 100.0 * pv_used_capped_for_tc / max(load, eps) if load > eps else 0.0
+
+    # Clamp final (au cas où)
+    ac = max(0.0, min(100.0, ac))
+    tc = max(0.0, min(100.0, tc))
+    return {"pv_tot":pv,
+            "load_tot":load,
+            "import_tot":imp,
+            "export_tot":exp,
+            "ac":ac,
+            "tc":tc}
+
+def simulate_pv_scale(rows:list,
+                      factor:float,
+                      ) -> list:
+    """ Renvoie une nouvelle liste de rows avec la production PV multipliée par `factor`.
+
+    Args:
+        rows (list): liste des lignes horaires [{'date', 'pv', 'load'}]
+        factor (float): facteur de multiplication de la production PV
+    Returns:
+        list: nouvelles lignes avec PV ajustée
+    """
+    return [{"date": r["date"],
+             "pv": r["pv"]*factor,
+             "load": r["load"]} for r in rows]
 
 def _hour_from_iso(ts_str: str) -> int:
     """
+        Extrait l'heure locale (0-23) d'une chaîne de caractères ISO "YYYY-MM-DDTHH:MM:SS(+TZ?)"
+        
+    Args:
+        ts_str (str): chaîne de caractères de date/heure
+    Returns:
+        int: heure locale (0-23), ou -1 en cas d'erreur
     """
     try:
         # "YYYY-MM-DD HH:MM" ou ISO "YYYY-MM-DDTHH:MM:SS(+TZ?)"
@@ -316,7 +472,7 @@ def simulate_battery(rows,
                      soc_reserve=0.10,
                      initial_soc=0.0,
                      allow_discharge_in_hc=True,
-                     ):
+                     ) -> list:
     """
         Simule l'utilisation d'une batterie sur une période entière
         en partant d'un SoC initial, sans remise à zéro quotidienne.
@@ -329,6 +485,71 @@ def simulate_battery(rows,
         grid_charge             : autoriser la recharge sur le réseau en heures creuses
         grid_hours              : liste des heures creuses [0..23]
         allow_discharge_in_hc   : décharge autorisée en HC
+        grid_target_soc         : cible de SoC en recharge HC (0.0 → 0%, 1.0 → 100%)
+        grid_charge_limit       : puissance max de charge réseau en HC (kW)
+        charge_limit            : puissance max de charge batterie (kW) (None = illimité)
+        discharge_limit         : puissance max de décharge batterie (kW) (None = illimité)
+    Returns:
+        list: liste des lignes horaires avec simulation batterie
+        chaque élément contient au minimum :
+            date, pv, load, pv_direct, pv_to_batt, batt_to_load, import, export, soc
+        où :
+            pv              : production PV (kWh)
+            load            : consommation (kWh)
+            pv_direct      : PV consommée directement (kWh)
+            pv_to_batt     : PV stockée en batterie (kWh)
+            batt_to_load   : énergie fournie par la batterie (kWh)
+            import         : énergie importée du réseau (kWh)
+            export         : énergie exportée vers le réseau (kWh)
+            soc            : état de charge de la batterie (kWh)
+        Si `batt_kwh` <= 0, la batterie n'est pas simulée et les valeurs de SoC, pv_to_batt et batt_to_load sont à 0.
+        Le calcul d'import/export est ajusté en conséquence.
+        Le SoC est maintenu entre [batt_kwh * soc_reserve, batt_kwh].
+        La batterie n'est pas remise à zéro chaque jour.
+        Le rendement `eff` s'applique à la fois en charge et en décharge.
+        Le paramètre `grid_hours` est une liste d'heures (0-23) considérées comme heures creuses.
+        Si `grid_charge` est False, la batterie n'est jamais rechargée sur le réseau.
+        Si `allow_discharge_in_hc` est False, la batterie ne peut pas se décharger en HC.
+        Si `charge_limit` ou `discharge_limit` sont fournis, ils limitent respectivement la puissance de charge et de décharge (kW).
+        Si `grid_charge` est True, la batterie tente de se recharger sur le réseau en HC pour atteindre `grid_target_soc`,
+        limité par `grid_charge_limit`.
+        Le calcul d'import/export prend en compte la batterie et les recharges réseau en HC.
+    Note: les valeurs de puissance (kW) sont considérées comme des énergies (kWh) sur une période horaire.
+    1 kW sur 1 heure = 1 kWh
+    1 kW sur 30 minutes = 0.5 kWh
+    1 kW sur 15 minutes = 0.25 kWh
+    1 kW sur 10 minutes = 1/6 kWh ≈ 0.1667 kWh
+    1 kW sur 5 minutes = 1/12 kWh ≈ 0.0833 kWh
+    1 kW sur 1 minute = 1/60 kWh ≈ 0.01667 kWh
+    1 kW sur 10 secondes = 1/360 kWh ≈ 0.00278 kWh
+    1 kW sur 1 seconde = 1/3600 kWh ≈ 0.000278 kWh
+    Exemples:
+        - Pour une période horaire complète, 1 kW = 1 kWh
+        - Pour une période de 30 minutes, 1 kW = 0.5 kWh
+        - Pour une période de 15 minutes, 1 kW = 0.25 kWh
+        - Pour une période de 10 minutes, 1 kW = 1/6 kWh ≈ 0.1667 kWh
+        - Pour une période de 5 minutes, 1 kW = 1/12 kWh ≈ 0.0833 kWh
+        - Pour une période de 1 minute, 1 kW = 1/60 kWh ≈ 0.01667 kWh
+        - Pour une période de 10 secondes, 1 kW = 1/360 kWh ≈ 0.00278 kWh
+        - Pour une période de 1 seconde, 1 kW = 1/3600 kWh ≈ 0.000278 kWh
+    Raises:
+        ValueError: si les paramètres sont invalides
+    -------------------------------------------------------------------------------------------
+    Exemples d'utilisation:
+    -------------------------------------------------------------------------------------------
+    # Simule une batterie de 10 kWh avec un rendement de 90% et un SoC initial de 50%
+    simulated = simulate_battery(data, batt_kwh=10, eff=0.9, initial_soc=0.5) # 50% de SoC initial
+    # Simule une batterie de 20 kWh avec un rendement de 85%, un SoC initial de 20%,
+    # une limite de charge de 5 kW, une limite de décharge de 5 kW, et une réserve de SoC de 10%
+    simulated = simulate_battery(data, batt_kwh=20, eff=0.85, initial_soc=0.2, charge_limit=5, discharge_limit=5, soc_reserve=0.1)
+    # Simule une batterie de 15 kWh avec un rendement de 90%, un SoC initial de 0%,
+    # autorise la recharge sur le réseau en heures creuses (22h-6h) avec une cible de SoC de 80% et une limite de charge réseau de 3 kW
+    simulated = simulate_battery(data, batt_kwh=15, eff=0.9, initial_soc=0.0, grid_charge=True, grid_hours=list(range(22,24))+list(range(0,6)), grid_target_soc=0.8, grid_charge_limit=3.0)
+    -------------------------------------------------------------------------------------------
+    Raises:
+        ValueError: si les paramètres sont invalides
+    Returns:
+        list: liste des lignes horaires avec simulation batterie
     """
     if batt_kwh <= 0:
         out=[]
@@ -409,44 +630,13 @@ def simulate_battery(rows,
         # 7) Clamp SoC
         soc = max(soc_min, min(soc_max, soc))
 
-        # 2) PV → batterie (stockage), borné par capacité restante
-        #pv_in_limit = available_pv if charge_limit is None else min(available_pv, charge_limit)
-        #can_store = (soc_max - soc) / eff if eff > 0 else 0.0
-        #charge_from_pv_in = min(pv_in_limit, max(0.0, can_store))
-        #pv_to_batt = charge_from_pv_in                     # côté entrée (kWh PV)
-        #soc += pv_to_batt * eff
-        #available_pv -= pv_to_batt
+        # 8) Import total = load + recharge HC
+        #    Export total = surplus PV
+        #    (la batterie est un tampon interne)
+        # 9) Stockage des résultats
+        imp = imp_load + imp_grid
+        exp = export
 
-        # 3) Batterie → charges (décharge)
-        #batt_avail_out = max(0.0, soc - soc_min) * eff
-        #batt_out_limit = remaining_load if discharge_limit is None else min(remaining_load, discharge_limit)
-        #batt_to_load = min(batt_out_limit, batt_avail_out)
-        #soc -= batt_to_load / (eff if eff > 0 else 1.0)
-        #remaining_load -= batt_to_load
-
-        # 4) Import pour le reste de charge
-        #imp = max(0.0, remaining_load)
-
-        # 5) Export du surplus PV
-        #exp = max(0.0, available_pv)
-
-        # 6) Recharge réseau en HC (optionnelle)
-        #try:
-        #    hour_local = int(str(r["date"])[11:13])
-        #except:
-        #    hour_local = -1
-        #if grid_charge and hour_local in grid_hours:
-        #    target_soc = batt_kwh * grid_target_soc
-        #    if soc < target_soc:
-        #        need = target_soc - soc
-        #        # quantité entrée batterie (côté entrée réseau)
-        #        grid_in = min(need / (eff if eff > 0 else 1.0), grid_charge_limit)
-        #        soc += grid_in * eff
-        #        imp += grid_in
-#
-        ## clamp SoC
-        #soc = max(soc_min, min(soc_max, soc))
-#
         out.append({
             "date": r["date"],
             "pv": pv,
@@ -461,9 +651,24 @@ def simulate_battery(rows,
     return out
 
 
-def run_simu(cfg: dict) -> None:
+def run_simu(cfg: dict,
+             args=None,
+             ) -> None:
     """
-        Lancement de la simulation
+    Lancement de la simulation
+        1) lit le CSV horaire produit par report
+        2) calcule la situation actuelle (sans batterie)
+        3) si `--override`, simule la batterie avec les paramètres forcés
+           sinon, teste toutes les combinaisons de PV et batterie
+        4) affiche les résultats
+        5) écrit un CSV horaire détaillé pour la simulation retenue
+    Args:
+        cfg (dict): configuration chargée
+        args (argparse.Namespace, optional): paramètres passés au script. Defaults to None.
+    Returns:
+        None
+    Raises:
+        RuntimeError: en cas d'erreur critique
     """
     IN_CSV          = cfg["OUT_CSV_DETAIL"]               # on lit le CSV horaire produit par report
     OUT_CSV         = cfg["OUT_CSV_SIMU"]                 # fichier de sortie CSV horaire
@@ -482,6 +687,8 @@ def run_simu(cfg: dict) -> None:
         float(cfg.get("MAX_DISCHARGE_KW_PER_HOUR", 0.0)) or None
     )
     ALLOW_DISCHARGE_IN_HC = cfg.get("ALLOW_DISCHARGE_IN_HC", False)
+    PV_FACTOR       = float(cfg.get("SIM_SCENARIO", {}).get("PV_FACTOR", 1.0))
+    BATTERY_KWH     = float(cfg.get("SIM_SCENARIO", {}).get("BATTERY_KWH", 0.0))
 
     if not Path(IN_CSV).exists():
         print(f"[ERREUR] Fichier horaire introuvable: {IN_CSV}\nLance d'abord --mode report.")
@@ -518,7 +725,47 @@ def run_simu(cfg: dict) -> None:
                END,
                PV_ACTUAL_KW)
 
-    # combinaisons
+    # si override, on force les paramètres
+    if args.override:
+        scaled_rows = simulate_pv_scale(rows, PV_FACTOR)
+        sim = simulate_battery(
+            rows=scaled_rows,
+            grid_hours=[0,1,2,3,4,5,22,23],                 # Heures creuses
+            batt_kwh=BATTERY_KWH,                           # batterie utilisée
+            eff=EFF,                                        # Batterie efficiency
+            soc_reserve=BATT_MIN_SOC,                       # minimum de capacité pour la batterie
+            initial_soc=INITIAL_SOC,                        # batterie avec un pourcentage de départ
+            discharge_limit=MAX_DISCHARGE_KW_PER_HOUR,      # décharge limite de batterie
+            allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC     # Permet la décharge en heure creuse
+        )
+
+        daily = aggregate_daily(sim)
+        st  = compute_stats(sim)
+        ui.summary(f"Simulation forcée (override) PV x{PV_FACTOR:g}, Batt {int(BATTERY_KWH)} kWh",
+                     st["pv_tot"],
+                     st["load_tot"],
+                     st["import_tot"],
+                     st["export_tot"],
+                     st["ac"],
+                     st["tc"],
+                     START,
+                     END,
+                     pv_factor=PV_FACTOR,
+                     batt_kw=BATTERY_KWH)
+        # CSV détaillé
+        csv_detail_path = cfg.get("OUT_CSV_SIM_DETAIL", "ha_energy_sim_detail.csv")
+        context = {
+            "pv_factor": PV_FACTOR,       # facteur du scénario retenu
+            "batt_kwh": BATTERY_KWH,      # capacité batterie
+            "eff": EFF,
+            "initial_soc": cfg.get("INITIAL_SOC", 0.0),
+            "pv_kwc": cfg.get("PV_ACTUAL_KW", 0.0),
+            "scenario": f"PV x{PV_FACTOR:g}, Batt {int(BATTERY_KWH)} kWh",
+        }
+        save_sim_detail(csv_detail_path, sim, context=context)
+        ui.definitions()
+        return
+    # sinon on teste toutes les combinaisons
     results=[]
     for fct in PV_FACTORS:
         scaled = simulate_pv_scale(rows, fct)
@@ -589,11 +836,63 @@ def run_simu(cfg: dict) -> None:
 
     ui.definitions()
 
-def run_plot(cfg: dict, args=None):
+def csv_available_days(csv_path: str) -> list[str]:
     """
-        Affiche en console les barres horaires (import/batterie/PV et export)
-        pour un jour donné à partir d'un CSV de simulation horaire.
-        Le CSV doit contenir: date,pv,load,pv_direct,pv_to_batt,batt_to_load,import,export,soc
+    Retourne la liste triée des jours (YYYY-MM-DD) présents dans le CSV "detail".
+    On lit la colonne 'date' et on tronque à 10 caractères.
+    Args:
+        csv_path (str): chemin du CSV
+    Returns:
+        list[str]: liste des jours disponibles dans le CSV
+    Raises:
+        None
+    """
+    days = set()
+    try:
+        with open(csv_path, "r", newline="") as f:
+            rdr = csv.DictReader(f)
+            for r in rdr:
+                ts = str(r.get("date",""))[:10]
+                if len(ts) == 10 and ts[4] == "-" and ts[7] == "-":
+                    days.add(ts)
+    except Exception:
+        pass
+    return sorted(days)
+
+def csv_has_day(csv_path: str, 
+                day: str,
+                ) -> bool:
+    """ Vérifie si un jour donné (YYYY-MM-DD) est présent dans le CSV "detail".
+    Args:
+        csv_path (str): chemin du CSV
+        day (str): jour au format YYYY-MM-DD
+    Returns:
+        bool: True si le jour est présent, False sinon
+    Raises:
+        None
+    """
+    return day in set(csv_available_days(csv_path))
+
+def run_plot(cfg: dict,
+             args=None,
+             ) -> None:
+    """
+    Affiche en console les barres horaires (import/batterie/PV et export)
+    pour un jour donné à partir d'un CSV de simulation horaire.
+    Le CSV doit contenir: date,pv,load,pv_direct,pv_to_batt,batt_to_load,import,export,soc
+    1) lit le CSV horaire de simulation
+    2) extrait le jour demandé (ou le premier jour de la période)
+    3) affiche les barres en console (2 colonnes: actuel vs simulé si base fourni)
+    4) affiche le contexte (paramètres de la simulation)
+    5) affiche la légende
+    6) affiche les définitions
+    Args:
+        cfg (dict): configuration chargée
+        args (argparse.Namespace, optional): paramètres passés au script. Defaults to None.
+    Returns:
+        None
+    Raises:
+        RuntimeError: en cas d'erreur critique
     """
 
     # jour cible
@@ -607,7 +906,7 @@ def run_plot(cfg: dict, args=None):
             ui.error("Spécifie --day YYYY-MM-DD ou définis START dans la config.")
             return
         day = start
-
+    days = min(2, max(1, int(getattr(args, "days", 1))))
     # chemin CSV de la simulation
     sim_csv_path = None
     if args and getattr(args, "csv", None):
@@ -625,6 +924,17 @@ def run_plot(cfg: dict, args=None):
     p_base = Path(base_csv_path)
     if not p_base.exists():
         ui.error(f"CSV introuvable")
+        return
+    
+    # vérifie que le jour est dans le CSV
+    csv_path_detail = str(p_sim)
+    days_csv = csv_available_days(csv_path_detail)
+    if (not days_csv) or (day not in days_csv):
+        # message clair + quelques suggestions
+        hint = None
+        if days_csv:
+            hint = f"Choisis un jour parmi les dates présentes dans {csv_path_detail}."
+        ui.show_day_not_found(day or "(non fourni)", days_csv, hint=hint)
         return
     
     max_kwh = float(getattr(args, "max_kwh", 5.0) or 5.0)
@@ -645,6 +955,8 @@ def run_plot(cfg: dict, args=None):
         base_csv_path=str(p_base),
         sim_csv_path=str(p_sim),
         day=day,
+        days=days,
+        stack_when_multi=False, # empiler si days>1
         max_kwh=None,       # autoscale commun
         step_kwh=0.2,
         col_width=2,
@@ -657,16 +969,30 @@ def run_plot(cfg: dict, args=None):
 # CLI
 # =========================
 def main():
+    """ Point d'entrée principal du script.
+        Parse les arguments, charge la config et lance le mode demandé.
+    Args:
+        None
+    Returns:
+        None
+    Raises:
+        SystemExit: en cas d'erreur de parsing ou d'exécution
+    """
     ap = argparse.ArgumentParser(description="PV/Load report & simulation (HA + Sizing)")
     ap.add_argument("--mode", choices=["report","simu","plot"], required=True, help="report: fetch & compute; simu: run combos on hourly CSV; plot: bar charts in console")
     ap.add_argument("--config", default="pv_config.json", help="chemin du JSON de config (défaut: pv_config.json)")
     # --- options pour le mode report ---
     ap.add_argument("--source", choices=["ha_ws","csv","enlighten"], default="ha_ws",help="source de données pour --mode report")
+    # --- options pour le mode simu ---
+    ap.add_argument("--override", type=bool, default=False,
+                    help="Force la simulation avec les paramètres définis dans le JSON (sinon utilise les derniers paramètres retenus)")
     # --- options pour le mode plot ---
     ap.add_argument("--day", help="Jour à afficher (YYYY-MM-DD) pour --mode plot")
+    ap.add_argument("--days", type=int, default=1,
+                    help="Nombre de jours à tracer en mode plot (1 par défaut, 2 pour 48h)")
     ap.add_argument("--max-kwh", type=float, default=5.0,
                     help="Échelle verticale (kWh) pour les barres en --mode plot (défaut 5.0)")
-    ap.add_argument("--csv", help="Override: chemin du CSV horaire détaillé (sinon OUT_CSV_SIM_DETAIL du JSON)")
+    ap.add_argument("--csv", help="Chemin du CSV horaire détaillé (sinon OUT_CSV_SIM_DETAIL du JSON)")
     args = ap.parse_args()
 
     cfg = load_config(Path(args.config))
@@ -674,7 +1000,7 @@ def main():
     if args.mode == "report":
         run_report(cfg, args)
     elif args.mode == "simu":
-        run_simu(cfg)
+        run_simu(cfg, args)
     else:
         run_plot(cfg, args)
 
