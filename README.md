@@ -152,7 +152,7 @@ Exemple minimal à adapter à vos valeurs :
 * **MAX_CHARGE_KW_PER_HOUR/DISCHARGE_KW_PER_HOUR**: limites (kWh par pas horaire). `0` = illimité
 
 > [!NOTE]
-> Vous pouvez overrider le scénario de simulation (PV et batterie) via le JSON en posant par ex. `SIM_OVERRIDE: {"pv_factor": 2.4, "batt_kwh": 24}`.
+> Vous pouvez forcer le scénario de simulation (PV et batterie) via le JSON en posant par ex. `SIM_OVERRIDE: {"pv_factor": 2.4, "batt_kwh": 24}`.
 
 # Lancer l'outil
 ## Rapport (extraction et calculs)
