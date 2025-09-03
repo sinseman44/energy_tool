@@ -184,6 +184,10 @@ Exemple d'affichage :<br />
 ```bash
 python3 energy_tool.py --mode plot --config pv_config.json --day 2025-06-01 --days 2
 ```
+Exemple d'affichage :<br />
+![example_plot_48h_1](assets/energy_tool_plot_48h_example_1.png)
+![example_plot_48h_2](assets/energy_tool_plot_48h_example_2.png)
+
 > [!NOTE]
 > Les graphes utilisent `Rich` : couleurs, panneaux de contexte (puissance PV, scénario, SoC initial, AC/TC, etc.).
 
