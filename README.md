@@ -120,7 +120,7 @@ python3 energy_tool.py --mode plot --config pv_config.json --day 2025-06-01
 python3 energy_tool.py --mode plot --config pv_config.json --day 2025-06-01 --days 2
 ```
 > [!NOTE]
-> Les graphes utilisent Rich : couleurs, panneaux de contexte (puissance PV, scénario, SoC initial, AC/TC, etc.).
+> Les graphes utilisent `Rich` : couleurs, panneaux de contexte (puissance PV, scénario, SoC initial, AC/TC, etc.).
 
 # Sorties générées
 TODO
