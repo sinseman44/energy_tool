@@ -83,6 +83,7 @@ surplus injecté au réseau
 * Python 3.10+
 * Home Assistant (optionnel, si vous utilisez la source `ha_ws`)
 * Un _long-lived access token_ Home Assistant (si vous utilisez la source `ha_ws`)
+![ha_long_lived_token](assets/HA_long_lived_token.png)
 * Paquets Python:
   * `websocket-client`, `rich`
 
@@ -161,15 +162,24 @@ ou depuis un CSV déjà exporté :
 ```bash
 python3 energy_tool.py --mode report --config pv_config.json --source csv
 ```
+Exemple d'affichage :<br />
+![example_report](assets/energy_tool_report_example.png)
+
 ## Simulation (sélectionne les scénarios qui atteignent vos objectifs)
 ```bash
 python3 energy_tool.py --mode simu --config pv_config.json
 ```
+Exemple d'affichage :<br />
+![example_simu](assets/energy_tool_simu_example.png)
+
 ## Graphes (plot)
 * Bipolaire simple (un CSV, un jour):
 ```bash
 python3 energy_tool.py --mode plot --config pv_config.json --day 2025-06-01
 ```
+Exemple d'affichage :<br />
+![example_plot](assets/energy_tool_plot_example.png)
+
 * Comparatif Avant/Après
 ```bash
 python3 energy_tool.py --mode plot --config pv_config.json --day 2025-06-01 --days 2
