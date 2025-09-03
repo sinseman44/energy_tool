@@ -592,6 +592,8 @@ class ConsoleUI:
                     pvd = self._as_float(r.get("pv_direct"))
                     p2b = self._as_float(r.get("pv_to_batt"))
                     b2l = self._as_float(r.get("batt_to_load"))
+                    g2b = self._as_float(r.get("grid_to_batt"))
+                    i2l = self._as_float(r.get("imp_to_load"))
                     imp = self._as_float(r.get("import"))
                     exp = self._as_float(r.get("export"))
 
@@ -608,6 +610,8 @@ class ConsoleUI:
                         "pv_direct":    pvd or 0.0,
                         "pv_to_batt":   p2b or 0.0,
                         "batt_to_load": b2l or 0.0,
+                        "grid_to_batt": g2b or 0.0,
+                        "imp_to_load":  i2l or 0.0,
                         "import":       imp or 0.0,
                         "export":       exp or 0.0,
                         "pv":           pv_total or 0.0,
@@ -643,6 +647,8 @@ class ConsoleUI:
                         "pv_direct":    0.0,
                         "pv_to_batt":   0.0,
                         "batt_to_load": 0.0,
+                        "grid_to_batt": 0.0,
+                        "imp_to_load":  0.0,
                         "import":       imp,
                         "export":       exp,
                         "pv":           pv,
@@ -653,9 +659,16 @@ class ConsoleUI:
         by_h = {r["hour"]: r for r in rows}
         out = []
         for h in range(24):
-            out.append(by_h.get(h, {
-                "hour": h, "pv_direct": 0.0, "pv_to_batt": 0.0,
-                "batt_to_load": 0.0, "import": 0.0, "export": 0.0
+            out.append(by_h.get(h, 
+            {
+                "hour": h, 
+                "pv_direct": 0.0, 
+                "pv_to_batt": 0.0,
+                "batt_to_load": 0.0, 
+                "grid_to_batt": 0.0,
+                "imp_to_load": 0.0,
+                "import": 0.0, 
+                "export": 0.0
             }))
         out.sort(key=lambda x: x["hour"])
         return out
@@ -809,14 +822,24 @@ class ConsoleUI:
         4) Retour du dictionnaire des totaux
         """
         tot = {
-            "pv_direct": 0.0, "pv_to_batt": 0.0, "batt_to_load": 0.0,
-            "import": 0.0, "export": 0.0, "pv": 0.0, "load": 0.0,
-            "soc_start": None, "soc_end": None
+            "pv_direct": 0.0,
+            "pv_to_batt": 0.0,
+            "batt_to_load": 0.0,
+            "grid_to_batt": 0.0,
+            "imp_to_load": 0.0,
+            "import": 0.0,
+            "export": 0.0,
+            "pv": 0.0,
+            "load": 0.0,
+            "soc_start": None,
+            "soc_end": None
         }
         for i, r in enumerate(day_rows):
             pvd = float(r.get("pv_direct", 0) or 0)
             p2b = float(r.get("pv_to_batt", 0) or 0)
             b2l = float(r.get("batt_to_load", 0) or 0)
+            g2b = float(r.get("grid_to_batt", 0) or 0)
+            i2l = float(r.get("imp_to_load", 0) or 0)
             imp = float(r.get("import", 0) or 0)
             exp = float(r.get("export", 0) or 0)
             # si ton CSV contient 'pv' et 'load' par heure, prends-les, sinon reconstitue:
@@ -826,6 +849,8 @@ class ConsoleUI:
             tot["pv_direct"]   += pvd
             tot["pv_to_batt"]  += p2b
             tot["batt_to_load"]+= b2l
+            tot["grid_to_batt"]+= g2b
+            tot["imp_to_load"] += i2l
             tot["import"]      += imp
             tot["export"]      += exp
             tot["pv"]          += pv
@@ -1261,6 +1286,8 @@ class ConsoleUI:
                              "pv_direct":0.0,
                              "pv_to_batt":0.0,
                              "batt_to_load":0.0,
+                             "grid_to_batt":0.0,
+                             "imp_to_load":0.0,
                              "import":0.0,
                              "export":0.0,
                              "pv":0.0,
@@ -1772,9 +1799,11 @@ class ConsoleUI:
                     imp = float(r.get("import", 0) or 0)
                     p2b = float(r.get("pv_to_batt", 0) or 0)
                     exp = float(r.get("export", 0) or 0)
+                    g2b = float(r.get("grid_to_batt", 0) or 0)
+                    i2l = float(r.get("imp_to_load", 0) or 0)
                     
                     up.append([(pvd, "[orange1]"), (b2l, "[magenta]"), (imp, "[blue]")])
-                    dn.append([(p2b, "[yellow3]"), (exp, "[grey74]")])
+                    dn.append([(g2b, "[#00BFFF]"), (p2b, "[yellow3]"), (exp, "[grey74]")])
 
                     up_max = max(up_max, pvd + b2l + imp)
                     dn_max = max(dn_max, p2b + exp)
@@ -1912,7 +1941,7 @@ class ConsoleUI:
         if self.has_rich:
             self.console.print(
                 "[dim]Haut : [orange1]PV direct[/], [magenta]Batt→charges[/], [blue]Import[/]   "
-                "Bas : [yellow3]PV→batterie[/], [grey74]Export[/][/dim]"
+                "Bas : [#00BFFF]Grid→batterie[/], [yellow3]PV→batterie[/], [grey74]Export[/][/dim]"
             )
 
     def show_day_not_found(self,

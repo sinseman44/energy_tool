@@ -38,22 +38,22 @@ ui = ConsoleUI()
 def save_sim_detail(csv_path: str, 
                     sim_rows: list, 
                     date_key: str = "date", 
-                    context=None,
+                    context: dict = None,
                     ) -> None:
     """
-        Écrit un CSV horaire détaillé pour un scénario unique.
-        `sim_rows` est la liste de dicts renvoyée par `simulate_battery(...)`,
-        chaque élément devant contenir au minimum :
-            date, pv, load, pv_direct, pv_to_batt, batt_to_load, import, export, soc
-            context: ex. {
-                "pv_factor": 2.4,
-                "batt_kwh": 24,
-                "eff": 0.90,
-                "initial_soc": 0.5,   # 50% (ou 50 si tu préfères)
-                "pv_kwc": 4.0,
-                "scenario": "PV x2.4, Batt 24 kWh"
-            }
-
+    Écrit un CSV horaire détaillé pour un scénario unique.
+    `sim_rows` est la liste de dicts renvoyée par `simulate_battery(...)`,
+    chaque élément devant contenir au minimum :
+        date, pv, load, pv_direct, pv_to_batt, batt_to_load, grid_to_batt, import, export, soc, context
+    où :
+        context: ex. {
+            "pv_factor": 2.4,
+            "batt_kwh": 24,
+            "eff": 0.90,
+            "initial_soc": 0.5,   # 50% (ou 50 si tu préfères)
+            "pv_kwc": 4.0,
+            "scenario": "PV x2.4, Batt 24 kWh"
+        }
         - date peut être str ("YYYY-MM-DD HH:MM") ou datetime -> converti en ISO minutes
         - les valeurs sont arrondies proprement
         - les champs meta sont répétés sur chaque ligne
@@ -62,18 +62,26 @@ def save_sim_detail(csv_path: str,
         csv_path (str): chemin du fichier CSV de sortie
         sim_rows (list): liste des lignes horaires simulées
         date_key (str, optional): clé pour la date dans chaque ligne. Defaults to "date".
-        context (_type_, optional): contexte à ajouter en méta. Defaults to None.
+        context (dict, optional): contexte à ajouter en méta. Defaults to None.
 
     Returns:
         None
 
     Raises:
         IOError: en cas de problème d'écriture du fichier
-        
     """
     fields = [
-        "date", "pv", "load", "pv_direct", "pv_to_batt",
-        "batt_to_load", "import", "export", "soc"
+        "date",
+        "pv",
+        "load",
+        "pv_direct",
+        "pv_to_batt",
+        "batt_to_load",
+        "grid_to_batt",
+        "imp_to_load",
+        "import",
+        "export",
+        "soc"
     ]
 
     meta_fields = ["pv_factor","batt_kwh","eff","initial_soc","pv_kwc","scenario"]
@@ -113,6 +121,8 @@ def save_sim_detail(csv_path: str,
                 "pv_direct": round(float(r.get("pv_direct", 0.0)), 6),
                 "pv_to_batt": round(float(r.get("pv_to_batt", 0.0)), 6),
                 "batt_to_load": round(float(r.get("batt_to_load", 0.0)), 6),
+                "grid_to_batt": round(float(r.get("imp_grid", 0.0)), 6),
+                "imp_to_load": round(float(r.get("imp_load", 0.0)), 6),
                 "import": round(float(r.get("import", 0.0)), 6),
                 "export": round(float(r.get("export", 0.0)), 6),
                 # `soc` accepté en kWh ou %, on écrit ce que la simu fournit
@@ -646,7 +656,9 @@ def simulate_battery(rows,
             "soc": soc,
             "pv_direct": pv_direct,
             "batt_to_load": batt_to_load,
-            "pv_to_batt": pv_to_batt
+            "pv_to_batt": pv_to_batt,
+            "imp_grid": imp_grid,
+            "imp_load": imp_load,
         })
     return out
 
@@ -687,6 +699,11 @@ def run_simu(cfg: dict,
         float(cfg.get("MAX_DISCHARGE_KW_PER_HOUR", 0.0)) or None
     )
     ALLOW_DISCHARGE_IN_HC = cfg.get("ALLOW_DISCHARGE_IN_HC", False)
+    GRID_CHARGE_IN_HC    = cfg.get("GRID_CHARGE_IN_HC", False)
+    GRID_HOURS           = cfg.get("GRID_HOURS", [0,1,2,3,4,5,22,23])  # Heures creuses par défaut
+    GRID_TARGET_SOC      = float(cfg.get("GRID_TARGET_SOC", 0.8))
+    GRID_CHARGE_LIMIT    = float(cfg.get("GRID_CHARGE_LIMIT", 3.0))
+    # paramètres forcés si `--override`
     PV_FACTOR       = float(cfg.get("SIM_SCENARIO", {}).get("PV_FACTOR", 1.0))
     BATTERY_KWH     = float(cfg.get("SIM_SCENARIO", {}).get("BATTERY_KWH", 0.0))
 
@@ -730,13 +747,16 @@ def run_simu(cfg: dict,
         scaled_rows = simulate_pv_scale(rows, PV_FACTOR)
         sim = simulate_battery(
             rows=scaled_rows,
-            grid_hours=[0,1,2,3,4,5,22,23],                 # Heures creuses
+            grid_hours=GRID_HOURS,                          # Heures creuses
             batt_kwh=BATTERY_KWH,                           # batterie utilisée
             eff=EFF,                                        # Batterie efficiency
             soc_reserve=BATT_MIN_SOC,                       # minimum de capacité pour la batterie
             initial_soc=INITIAL_SOC,                        # batterie avec un pourcentage de départ
             discharge_limit=MAX_DISCHARGE_KW_PER_HOUR,      # décharge limite de batterie
-            allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC     # Permet la décharge en heure creuse
+            allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC,    # Permet la décharge en heure creuse
+            grid_charge=GRID_CHARGE_IN_HC,                  # Permet la recharge en HC
+            grid_target_soc=GRID_TARGET_SOC,                # cible de SoC en HC
+            grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
         )
 
         daily = aggregate_daily(sim)
@@ -772,13 +792,16 @@ def run_simu(cfg: dict,
         for batt_kwh in BATTERY_SIZES:
             sim = simulate_battery(
                 rows=scaled,
-                grid_hours=[0,1,2,3,4,5,22,23],                 # Heures creuses
+                grid_hours=GRID_HOURS,                          # Heures creuses
                 batt_kwh=batt_kwh,                              # batterie utilisée
                 eff=EFF,                                        # Batterie efficiency
                 soc_reserve=BATT_MIN_SOC,                       # minimum de capacité pour la batterie
                 initial_soc=INITIAL_SOC,                        # batterie avec un pourcentage de départ
                 discharge_limit=MAX_DISCHARGE_KW_PER_HOUR,      # décharge limite de batterie
-                allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC     # Permet la décharge en heure creuse
+                allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC,    # Permet la décharge en heure creuse
+                grid_charge=GRID_CHARGE_IN_HC,                  # Permet la recharge en HC
+                grid_target_soc=GRID_TARGET_SOC,                # cible de SoC en HC
+                grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
             )
             daily = aggregate_daily(sim)
             st  = compute_stats(sim)
@@ -789,7 +812,14 @@ def run_simu(cfg: dict,
         w = csv.writer(f)
         w.writerow(["pv_factor","battery_kWh","pv_tot_kWh","load_tot_kWh","import_kWh","export_kWh","AC_%","TC_%"])
         for fct, b, st in results:
-            w.writerow([fct, b, st["pv_tot"], st["load_tot"], st["import_tot"], st["export_tot"], st["ac"], st["tc"]])
+            w.writerow([fct, 
+                        b, 
+                        st["pv_tot"], 
+                        st["load_tot"], 
+                        st["import_tot"], 
+                        st["export_tot"], 
+                        st["ac"], 
+                        st["tc"]])
 
     # filtrage selon seuils
     passing = [(fct,b,st) for (fct,b,st) in results if (TARGET_AC_MIN <= st["ac"] <= TARGET_AC_MAX) and (st["tc"] >= TARGET_TC_MIN)]
@@ -808,13 +838,16 @@ def run_simu(cfg: dict,
     
     sim = simulate_battery(
         rows=scaled_rows,
-        grid_hours=[0,1,2,3,4,5,22,23],                 # Heures creuses
+        grid_hours=GRID_HOURS,                          # Heures creuses
         batt_kwh=batt_kwh,                              # batterie utilisée
         eff=EFF,                                        # Batterie efficiency
         soc_reserve=BATT_MIN_SOC,                       # minimum de capacité pour la batterie
         initial_soc=INITIAL_SOC,                        # batterie avec un pourcentage de départ
         discharge_limit=MAX_DISCHARGE_KW_PER_HOUR,      # décharge limite de batterie
-        allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC     # Permet la décharge en heure creuse
+        allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC,    # Permet la décharge en heure creuse
+        grid_charge=GRID_CHARGE_IN_HC,                  # Permet la recharge en HC
+        grid_target_soc=GRID_TARGET_SOC,                # cible de SoC en HC
+        grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
     )
     # chemin de sortie configurable (ajoute la clé dans ton JSON)
     csv_detail_path = cfg.get("OUT_CSV_SIM_DETAIL", "ha_energy_sim_detail.csv")
