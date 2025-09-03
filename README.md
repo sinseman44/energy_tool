@@ -47,7 +47,7 @@ $PV utilisée\ =\ \sum(pv\\_direct + batt\\_to\\_load)$
 
 ## Taux de couverture (TC)
 > [!NOTE]
-> Part de la consommation couverte par le PV.
+> Part de la consommation couverte par le PV.<br />
 > Plus cette valeur tend vers 100%, moins nous sommes dépendant du réseau électrique.
 
 <br />C'est le pourcentage de la consommation locale qui **provient de la production photovoltaique** (directement ou via batterie).
