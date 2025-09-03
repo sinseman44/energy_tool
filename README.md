@@ -141,17 +141,18 @@ Exemple minimal à adapter à vos valeurs :
 }
 ```
 ## Champs importants
-* BASE_URL/TOKEN/_ENTITY: connexion Home Assistant (mode `report`).
-* START/END: fenêtre d'étude (ISO local sans `Z` pour éviter les décalages).
-* TARGET_*: objectifs de sélection des scénarios (autoconsommation et couverture).
-* BATTERY_/PV_FACTORS: grille de recherche de scénarios.
-* GRID_*: recharge en heures creuses coté réseau (optionnel).
-* INITIAL_SOC: état de charge initial de la batterie
-* BATT_MIN_SOC: réserve non déchargeable de la batterie
-* MAX_CHARGE/DISCHARGE_KW_PER_HOUR: limites (kWh par pas horaire). `0` = illimité
+* **BASE_URL/TOKEN**: connexion Home Assistant (mode `report` avec la source `ha_ws`).
+* **PV_ENTITY/LOAD_ENTITY**: L'entité de production totale et de consommation totale d'Home Assistant (mode `report` avec la source `ha_ws`).
+* **START/END**: fenêtre d'étude (ISO local sans `Z` pour éviter les décalages).
+* **TARGET_AC_MIN/TARGET_AC_MAX/TARGET_TC_MIN**: objectifs de sélection des scénarios pour l'autoconsommation et le taux de couverture (mode `simu`).
+* **BATTERY_EFF/BATTERY_SIZES/PV_FACTORS**: grille de recherche de scénarios (mode `simu`).
+* **GRID_CHARGE/GRID_HOURS/GRID_TARGET_SOC/GRID_CHARGE_LIMIT**: recharge en heures creuses coté réseau (optionnel) (mode `simu`).
+* **INITIAL_SOC**: état de charge initial de la batterie pour la période d'étude.
+* **BATT_MIN_SOC**: réserve non déchargeable de la batterie.
+* **MAX_CHARGE_KW_PER_HOUR/DISCHARGE_KW_PER_HOUR**: limites (kWh par pas horaire). `0` = illimité
 
 > [!NOTE]
-> Vous pouvez overrider le scénario de simulation (PV et batterie) via le JSON en posant par ex. `SIM_OVERRIDE: {"pv_factor": 2.4, "batt_kwh": 24}` (si implémenté dans votre `energy_tool.py`).
+> Vous pouvez overrider le scénario de simulation (PV et batterie) via le JSON en posant par ex. `SIM_OVERRIDE: {"pv_factor": 2.4, "batt_kwh": 24}`.
 
 # Lancer l'outil
 ## Rapport (extraction et calculs)
