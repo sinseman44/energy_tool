@@ -6,7 +6,13 @@
 
 ## Contexte
 
-Un simulateur d'energie d'une habitation avec des panneaux solaires et batteries
+Dans le but de tendre vers une indépendance énergetique (partielle ou totale) de mon logement, j'ai réalisé ce simulateur d'energie permettant de quantifié _au plus juste_ mon besoin en production solaire et stockage d'énergie.<br />
+Mon logement étant déjà équipé de panneaux photovoltaiques en autoconsommation avec revente de surplus, je me suis servi des données agrégées, au fil des mois, par mon système domotique (Home Assistant) pour créer ce simulateur.<br />
+<br />Cet outil a pour but :
+* de **récolter les données** de mon système domotique sur _une période de temps limitée_ (période d'étude).
+* Sur cette période d'étude, de **définir le meilleur compromis** en terme d'ajout de _production solaire_ et _stockage d'énergie_ en fonction de mes besoins en _autoconsommation_ et _taux de couverture_ (autosuffisance).
+* Sur cette même période d'étude, de simuler ce scénario (meilleur compromis) ou un scénario forcé sur les données récoltées de mon système domotique.
+* D'afficher les résultats sous forme de graphes avec un Avant (valeurs actuelles)/Après (valeurs simulées).
 
 # Support
 
@@ -39,6 +45,7 @@ $PV utilisée\ =\ \sum(pv\\_direct + batt\\_to\\_load)$
 ## Taux de couverture (TC)
 > [!NOTE]
 > Part de la consommation couverte par le PV.
+> Plus cette valeur tend vers 100%, moins nous sommes dépendant du réseau électrique.
 
 <br />C'est le pourcentage de la consommation locale qui **provient de la production photovoltaique** (directement ou via batterie).
 
