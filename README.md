@@ -17,19 +17,19 @@ Un simulateur d'energie d'une habitation avec des panneaux solaires et batteries
 See [Github To Do & Bug List](https://github.com/sinseman44/energy_tool/issues)
 
 # Fonctionnalités
-* Report (mode report) : récupère l’historique PV/Conso, calcule import/export horaire et journalier.
-* Simulation (mode simu) : parcourt un espace de scénarios PV × batteries selon vos objectifs (AC/TC), et produit le meilleur compromis.
-* Plot (mode plot) :
+* **Report** (mode `report`) : récupère l’historique PV/Conso, calcule import/export horaire et journalier.
+* **Simulation** (mode `simu`) : parcourt un espace de scénarios PV × batteries selon vos objectifs (AC/TC), et produit le meilleur compromis.
+* **Plot** (mode `plot`) :
   * graphe horaire bipolaire (consommation en haut / production en bas),
   * comparatif Avant/Après pour un jour donné,
   * affichage multi-jours (24 h / 48 h …) avec empilement vertical.
 
 # Prérequis
 * Python 3.10+
-* Home Assistant (optionnel, si vous utilisez la source ha_ws)
-* Un long-lived access token Home Assistant (si vous utilisez la source ha_ws)
+* Home Assistant (optionnel, si vous utilisez la source `ha_ws`)
+* Un _long-lived access token_ Home Assistant (si vous utilisez la source `ha_ws`)
 * Paquets Python:
-  * websocket-client, rich
+  * `websocket-client`, `rich`
 
 ```bash
 pip install websocket-client rich
@@ -126,14 +126,42 @@ python3 energy_tool.py --mode plot --config pv_config.json --day 2025-06-01 --da
 TODO
 # Définitions et formules
 ## Autoconsommation (AC)
-Part de la production PV consommée sur place.
-AC = (PV utilisée sur place / PV totale) * 100
-PV utilisée = PV - Export (ou, en simulation: somme `pv_direct + batt_to_load`)
+> [!NOTE]
+> Part de la production PV consommée sur place.
+
+<br />C'est le pourcentage de la production PV **directement utilisée** pour couvrir la consommation locale, **sans passer par l'export réseau**.
+
+### Formule
+$AC\ =\ (PV\ utilisée\ sur\ place / PV\ totale)\ *\ 100$
+<br />
+* **PV totale** = somme de toute la production PV sur la période.
+* **PV utilisée sur place** dépend du mode :
+  * **En mode report (réel)** :<br />
+$PV\ utilisée\ =\ PV\ totale\ -\ Export$
+  * **En mode simulation** :<br />
+$PV utilisée\ =\ \sum(pv\\_direct + batt\\_to\\_load)$
+
+### Valeur attendue
+* Toujours comprise entre **0%** et **100%**
 
 ## Taux de couverture (TC)
-Part de la consommation couverte par le PV
-TC = (PV utilisée sur place / Conso) * 100
-TC ne doit pas dépasser 100%
+> [!NOTE]
+> Part de la consommation couverte par le PV.
+
+<br />C'est le pourcentage de la consommation locale qui **provient de la production photovoltaique** (directement ou via batterie).
+
+### Formule
+$TC\ =\ (PV\ utilisée\ sur\ place / Consommation\ totale)\ *\ 100$
+<br />
+* **Consommation totale** = somme de la demande énergétique sur la période.
+* **PV utilisée sur place** = identique à celle utilisée pour le calcul de l'AC:
+  * **En mode report (réel)** :<br />
+$PV\ utilisée\ =\ PV\ totale\ -\ Export$
+  * **En mode simulation** :<br />
+$PV utilisée\ =\ \sum(pv\\_direct + batt\\_to\\_load)$
+ 
+### Valeur attendue
+* Toujours comprise entre **0%** et **100%**
 
 ## Import
 électricité prise au réseau
