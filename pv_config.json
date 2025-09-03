@@ -1,9 +1,9 @@
 {
-  "BASE_URL": "wss://domotique.nas.benserv.fr/api/websocket",
+  "BASE_URL": "wss://homeassistant:8123/api/websocket",
   "TOKEN": "XXXXXXXXXXXX",
   "PV_ACTUAL_KW": 4.0,
-  "PV_ENTITY": "sensor.envoy_122316003640_production_d_energie_totale",
-  "LOAD_ENTITY": "sensor.envoy_122316003640_consommation_d_energie_totale",
+  "PV_ENTITY": "sensor.envoy_production_d_energie_totale",
+  "LOAD_ENTITY": "sensor.envoy_consommation_d_energie_totale",
   "START": "2025-02-15T00:00:00",
   "END": "2025-02-19T00:00:00",
   "OUT_CSV_DETAIL": "ha_energy_import_export_hourly.csv",
@@ -29,4 +29,5 @@
     "PV_FACTOR": 2,
     "BATTERY_KWH": 64
   }
+
 }
