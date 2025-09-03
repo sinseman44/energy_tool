@@ -14,6 +14,9 @@ Mon logement étant déjà équipé de panneaux photovoltaiques en autoconsommat
 * Sur cette même période d'étude, de simuler ce scénario (meilleur compromis) ou un scénario forcé sur les données récoltées de mon système domotique.
 * D'afficher les résultats sous forme de graphes avec un Avant (valeurs actuelles)/Après (valeurs simulées).
 
+> [!WARNING]
+> Cet outil doit être utilisé à titre informatif et ne peux pas répondre avec une grande précision aux besoins exprimés.
+
 # Support
 
 <a href="https://www.buymeacoffee.com/sinseman44" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 145px !important;" ></a>
