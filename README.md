@@ -6,7 +6,7 @@
 
 ## Contexte
 
-Dans le but de tendre vers une indépendance énergetique (partielle ou totale) de mon logement, j'ai réalisé ce simulateur d'energie permettant de quantifié _au plus juste_ mon besoin en production solaire et stockage d'énergie.<br />
+Dans le but de tendre vers une indépendance énergetique (partielle ou totale) de mon logement, j'ai réalisé ce simulateur d'energie permettant de quantifier _au plus juste_ mon besoin en production solaire et stockage d'énergie.<br />
 Mon logement étant déjà équipé de panneaux photovoltaiques en autoconsommation avec revente de surplus, je me suis servi des données agrégées, au fil des mois, par mon système domotique (Home Assistant) pour créer ce simulateur.<br />
 <br />Cet outil a pour but :
 * de **récolter les données** de mon système domotique sur _une période de temps limitée_ (période d'étude).
