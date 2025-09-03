@@ -4,3 +4,4 @@ ha_energy_sim_detail.csv
 ha_energy_simulation_combos.csv
 pv_config_debug.json
 sources/__pycache__
+__pycache__

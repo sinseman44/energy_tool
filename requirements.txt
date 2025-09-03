@@ -1,0 +1,20 @@
+# === Outils de base ===
+python-dateutil>=2.8.2    # Manipulation avancée des dates
+pytz>=2023.3              # Gestion des fuseaux horaires
+requests>=2.31.0          # Requêtes HTTP pour API externes (ex : Enlighten)
+
+# === Gestion CSV, DataFrames, calculs ===
+pandas>=2.0.3             # Manipulation et analyse des CSV / agrégations
+numpy>=1.25.2             # Calculs numériques (utile pour certaines stats)
+
+# === Affichage CLI et mise en forme ===
+rich>=13.5.2              # Affichage enrichi en console (graphiques ASCII, panels, couleurs)
+
+# === WebSocket Home Assistant ===
+websocket-client>=1.6.1    # Connexion en temps réel à Home Assistant
+
+# === Graphiques (optionnel, si tu veux ajouter des plots matplotlib plus tard) ===
+matplotlib>=3.7.2          # Pour les graphiques externes si nécessaires
+
+# === Simulation énergétique ===
+scipy>=1.11.1              # Optionnel : optimisations et interpolations dans le simulateur
