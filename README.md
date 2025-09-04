@@ -128,6 +128,7 @@ Exemple minimal à adapter à vos valeurs :
   "BATTERY_SIZES": [0,5,10,12,14,16,18,20,22,24,26,28,30],
   "PV_FACTORS":   [1.0,1.2,1.5,1.8,2.0,2.2,2.4,2.6,3.0],
 
+  "ALLOW_DISCHARGE_IN_HC": true,
   "GRID_CHARGE": true,
   "GRID_HOURS": [22,23,0,1,2,3,4,5],
   "GRID_TARGET_SOC": 0.80,
@@ -146,6 +147,7 @@ Exemple minimal à adapter à vos valeurs :
 * **START/END**: fenêtre d'étude (ISO local sans `Z` pour éviter les décalages).
 * **TARGET_AC_MIN/TARGET_AC_MAX/TARGET_TC_MIN**: objectifs de sélection des scénarios pour l'autoconsommation et le taux de couverture (mode `simu`).
 * **BATTERY_EFF/BATTERY_SIZES/PV_FACTORS**: grille de recherche de scénarios (mode `simu`).
+* **ALLOW_DISCHARGE_IN_HC**: autorise la décharge de la batterie en heures creuses (mode `simu`).
 * **GRID_CHARGE/GRID_HOURS/GRID_TARGET_SOC/GRID_CHARGE_LIMIT**: recharge en heures creuses coté réseau (optionnel) (mode `simu`).
 * **INITIAL_SOC**: état de charge initial de la batterie pour la période d'étude.
 * **BATT_MIN_SOC**: réserve non déchargeable de la batterie.
@@ -209,5 +211,13 @@ Paramètres clés :
 * `BATT_MIN_SOC` (réserve) : fraction non déchargeable.
 * `INITIAL_SOC` : SoC initial au début de la fenêtre (pas de reset journalier).
 * Limites charge/décharge (kWh/h) optionnelles.
+
+## Scénarios envisagés pour la charge/décharge en Heures Creuses
+| `ALLOW_DISCHARGE_IN_HC` | `GRID_CHARGE_IN_HC` | Comportement |
+|-------------------------|:-------------------:|-------------:|
+| **FALSE**               | **FALSE**           | **Ni charge, ni décharge** en HC -> tout vient du réseau             |
+| **FALSE**               | **TRUE**            | **Recharge autorisée**, mais pas de décharge -> on remplit la batterie avec le réseau, toute la conso vient du réseau             |
+| **TRUE**                | **FALSE**           | **Décharge autorisée**, mais pas de recharge -> la batterie allimente le load si disponible             |
+| **TRUE**                | **TRUE**            | **Recharge et décharge autorisée**, priorité à la recharge             |
 
 # Graphes et console
