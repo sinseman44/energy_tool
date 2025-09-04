@@ -48,7 +48,7 @@ $PV utilisée\ =\ \sum(pv\\_direct + batt\\_to\\_load)$
 ## Taux de couverture (TC)
 > [!NOTE]
 > Part de la consommation couverte par le PV.<br />
-> Plus cette valeur tend vers 100%, moins nous sommes dépendant du réseau électrique.
+> Plus cette valeur tend vers 100%, moins nous sommes dépendants du réseau électrique.
 
 <br />C'est le pourcentage de la consommation locale qui **provient de la production photovoltaique** (directement ou via batterie).
 
@@ -129,7 +129,7 @@ Exemple minimal à adapter à vos valeurs :
   "PV_FACTORS":   [1.0,1.2,1.5,1.8,2.0,2.2,2.4,2.6,3.0],
 
   "ALLOW_DISCHARGE_IN_HC": true,
-  "GRID_CHARGE": true,
+  "GRID_CHARGE_IN_HC": true,
   "GRID_HOURS": [22,23,0,1,2,3,4,5],
   "GRID_TARGET_SOC": 0.80,
   "GRID_CHARGE_LIMIT": 3.0,
@@ -148,10 +148,13 @@ Exemple minimal à adapter à vos valeurs :
 * **TARGET_AC_MIN/TARGET_AC_MAX/TARGET_TC_MIN**: objectifs de sélection des scénarios pour l'autoconsommation et le taux de couverture (mode `simu`).
 * **BATTERY_EFF/BATTERY_SIZES/PV_FACTORS**: grille de recherche de scénarios (mode `simu`).
 * **ALLOW_DISCHARGE_IN_HC**: autorise la décharge de la batterie en heures creuses (mode `simu`).
-* **GRID_CHARGE/GRID_HOURS/GRID_TARGET_SOC/GRID_CHARGE_LIMIT**: recharge en heures creuses coté réseau (optionnel) (mode `simu`).
+* **GRID_CHARGE_IN_HC**: autorise la charge de la batterie en heures creuses (mode `simu`).
+* **GRID_HOURS**: heures creuses (mode `simu`).
+* **GRID_TARGET_SOC**: Jusqu'à quel niveau de charge, on souhaite remonter la batterie (mode `simu`).
+* **GRID_CHARGE_LIMIT**: La puissance maximale de recharge par heure, en kWh (mode `simu`).
 * **INITIAL_SOC**: état de charge initial de la batterie pour la période d'étude.
 * **BATT_MIN_SOC**: réserve non déchargeable de la batterie.
-* **MAX_CHARGE_KW_PER_HOUR/DISCHARGE_KW_PER_HOUR**: limites (kWh par pas horaire). `0` = illimité
+* **DISCHARGE_KW_PER_HOUR**: limites (kWh par pas horaire). `0` = illimité
 
 > [!NOTE]
 > Vous pouvez forcer le scénario de simulation (PV et batterie) via le JSON en posant par ex. `SIM_OVERRIDE: {"pv_factor": 2.4, "batt_kwh": 24}`.
