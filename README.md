@@ -200,11 +200,11 @@ TODO
 # Modèle de simulation
 Pour chaque heure h :
 1. PV → charges directes : `pv_direct = min(pv[h], load[h])`
-2. PV → batterie (stockage) : borné par capacité restante et `MAX_CHARGE_KW_PER_HOUR`
-3. Batterie → charges : borné par SoC – réserve et `MAX_DISCHARGE_KW_PER_HOUR`
-4. Import = reste de charge si non couvert
+2. Batterie → charges : borné par SoC – réserve et `MAX_DISCHARGE_KW_PER_HOUR`
+3. Import = reste de charge si non couvert
+4. PV → batterie (stockage) : borné par capacité restante et `MAX_CHARGE_KW_PER_HOUR`
 5. Export = surplus PV non stocké/consommé
-6. Recharge réseau (HC) si activée, vers `GRID_TARGET_SOC` sans dépasser `GRID_CHARGE_LIMIT` (kWh/h)
+6. Recharge réseau (HC) si activée, vers `GRID_TARGET_SOC` sans dépasser `GRID_CHARGE_LIMIT` (kWh)
 
 Paramètres clés :
 * Rendement unique `BATTERY_EFF` pour charge/décharge.
@@ -212,12 +212,17 @@ Paramètres clés :
 * `INITIAL_SOC` : SoC initial au début de la fenêtre (pas de reset journalier).
 * Limites charge/décharge (kWh/h) optionnelles.
 
-## Scénarios envisagés pour la charge/décharge en Heures Creuses
+## Scénarios envisagés pour la Charge/Décharge de la batterie en Heures Creuses
+
 | `ALLOW_DISCHARGE_IN_HC` | `GRID_CHARGE_IN_HC` | Comportement |
-|-------------------------|:-------------------:|-------------:|
+|:-----------------------:|:-------------------:|--------------|
 | **FALSE**               | **FALSE**           | **Ni charge, ni décharge** en HC -> tout vient du réseau             |
 | **FALSE**               | **TRUE**            | **Recharge autorisée**, mais pas de décharge -> on remplit la batterie avec le réseau, toute la conso vient du réseau             |
 | **TRUE**                | **FALSE**           | **Décharge autorisée**, mais pas de recharge -> la batterie allimente le load si disponible             |
 | **TRUE**                | **TRUE**            | **Recharge et décharge autorisée**, priorité à la recharge             |
+
+Dans une stratégie d'optimisation de l'autoconsommation pour les tarifs HC/HP:
+* On met `GRID_CHARGE_IN_HC = true` pour profiter des HC pour charger avec le réseau et alimenter l'habitation avec le réseau.
+* On met `ALLOW_DISCHARGE_IN_HC = false` pour éviter de vider la batterie en HC et maximiser l'autoconsommation.
 
 # Graphes et console
