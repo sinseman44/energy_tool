@@ -269,6 +269,20 @@ class ConsoleUI:
         else:
             print(msg.replace("[bold]", "").replace("[/bold]", ""))
 
+    def warning(self,
+                txt: str,
+                ) -> None:
+        """ Affiche un message d'avertissement.
+        Args:
+            txt (str): texte du message
+        Returns:
+            None
+        """
+        if self.has_rich:
+            self.console.print(Panel.fit(txt, border_style="yellow", title="Attention"))
+        else:
+            print("\n[Attention] " + txt)
+
     def show_no_scenarios(self,
                           ac_min: float,
                           ac_max: float,
@@ -368,9 +382,9 @@ class ConsoleUI:
             return Group(*items)
 
     def _bar_segments(self,
-                      parts: list[tuple[float, str, str or None]],
+                      parts: list[tuple[float, str, str | None]],
                       width: int=30,
-                      ) -> str or Text:
+                      ) -> str | Text:
         """
         parts: list of tuples (ratio, char, color or None) ; ratio ∈ [0..1], somme ≤ 1
         width: total width in characters

@@ -20,17 +20,24 @@ LOCAL_TZ = ZoneInfo("Europe/Paris") if ZoneInfo else None
 # CONFIG LOADER (JSON)
 # =========================
 DEFAULTS = {
-    "OUT_CSV_DETAIL": "ha_energy_import_export_hourly.csv",
-    "OUT_CSV_DAILY":  "ha_energy_import_export_daily.csv",
-    "OUT_CSV_SIMU":   "ha_energy_simulation_combos.csv",
-    "TARGET_AC_MIN":  85.0,
-    "TARGET_AC_MAX":  100.0,   # 100 = pas de plafond
-    "TARGET_TC_MIN":  80.0,
-    "BATTERY_SIZES":  [0,5,10,12,14,16,18,20,22,24,26,28,30],
-    "PV_FACTORS":     [1.0,1.2,1.5,1.8,2.0,2.2,2.4,2.6,3.0],
-    "BATTERY_EFF":    0.90,
-    "PV_ACTUAL_KW":   4.0,
-    "INITIAL_SOC":    0.0,    # 0% par défaut
+    "OUT_CSV_DETAIL":               "ha_energy_import_export_hourly.csv",
+    "OUT_CSV_DAILY":                "ha_energy_import_export_daily.csv",
+    "OUT_CSV_SIMU":                 "ha_energy_simulation_combos.csv",
+    "TARGET_AC_MIN":                85.0, # %
+    "TARGET_AC_MAX":                100.0, # 100 = pas de plafond
+    "TARGET_TC_MIN":                80.0, # %
+    "BATTERY_SIZES":                [0,5,10,12,14,16,18,20,22,24,26,28,30], # kWh
+    "PV_FACTORS":                   [1.0,1.2,1.5,1.8,2.0,2.2,2.4,2.6,3.0], # 1.0 = actuel
+    "BATTERY_EFF":                  0.90, # 90%
+    "PV_ACTUAL_KW":                 4.0, # kWc installé
+    "INITIAL_SOC":                  0.90, # 90%
+    "BATT_MIN_SOC":                 0.10, # 10 = 100% (jamais décharger)
+    "MAX_DISCHARGE_KW_PER_HOUR":    4.0, # kW max décharge batterie
+    "ALLOW_DISCHARGE_IN_HC":        True, # autoriser la décharge en HC
+    "GRID_CHARGE_IN_HC":            False, # autoriser la recharge en HC
+    "GRID_HOURS":                   [0,1,2,3,4,5,22,23], # heures creuses
+    "GRID_TARGET_SOC":              0.8, # 80% (0.0 → 0%, 1.0 → 100%)
+    "GRID_CHARGE_LIMIT":            3.0, # kW max charge réseau en HC
 }
 
 ui = ConsoleUI()
@@ -141,7 +148,7 @@ def to_utc_iso(s: str,
                tz_name: str = "Europe/Paris",
                ) -> str:
     """
-        Convertit une date fournie en LOCAL (sans offset) ou déjà tz-aware en ISO UTC.
+    Convertit une date fournie en LOCAL (sans offset) ou déjà tz-aware en ISO UTC.
         - Ex: "2025-06-01T00:00:00" (local) -> "2025-05-31T22:00:00Z" en été
         - Ex: "2025-06-01T00:00:00+02:00" -> converti en Z
         - Ex: "2025-06-01T00:00:00Z" -> inchangé
@@ -172,8 +179,9 @@ def to_utc_iso(s: str,
 
 def aggregate_daily(sim_rows:list) -> dict:
     """
-        Agrège les résultats horaires en journalier.
-        Renvoie un dict { "YYYY-MM-DD": {pv, load, imp, exp, pv_direct, batt_to_load, pv_to_batt} }
+    Agrège les résultats horaires en journalier.
+    Renvoie un dict { "YYYY-MM-DD": {pv, load, imp, exp, pv_direct, batt_to_load, pv_to_batt} }
+
     Args:
         sim_rows (list): liste des lignes horaires simulées
     Returns:
@@ -197,10 +205,12 @@ def aggregate_daily(sim_rows:list) -> dict:
         day[d]["pv_to_batt"]   += r.get("pv_to_batt", 0.0)
     return dict(sorted(day.items()))
 
-def _as_float(x:int or float, name:str) -> float:
-    """ Coercition d'un float
+def _as_float(x:any, name:str) -> float:
+    """ 
+    Coercition d'un float
+
     Args:
-        x (int or float): valeur à convertir
+        x (any): valeur à convertir
         name (str): nom du paramètre (pour message d'erreur)
     Returns:
         float: valeur convertie en float
@@ -213,7 +223,9 @@ def _as_float(x:int or float, name:str) -> float:
 def _as_list_float(x:list, 
                    name:str,
                    ) -> list:
-    """ Coercition d'une liste de float
+    """
+    Coercition d'une liste de float
+
     Args:
         x (list): _description_
         name (str): nom du paramètre (pour message d'erreur)
@@ -227,14 +239,13 @@ def _as_list_float(x:list,
     return [float(v) for v in x]
 
 def load_config(path: Path) -> dict:
-    """ Charge la configuration JSON, applique les valeurs par défaut et vérifie les champs obligatoires.
+    """ 
+    Charge la configuration JSON, applique les valeurs par défaut et vérifie les champs obligatoires.
 
     Args:
         path (Path): chemin vers le fichier JSON
-
     Raises:
         ValueError: si des champs obligatoires sont manquants ou mal formés
-
     Returns:
         dict: configuration complète
     """
@@ -268,17 +279,18 @@ def load_config(path: Path) -> dict:
 
 
 def make_source(cfg: dict,
-               args: argparse.Namespace = None,
+                args: argparse.Namespace = None,
                ) -> object:
-    """ sources de données suivant l'argument passé en paramètre.
+    """ 
+    sources de données suivant l'argument passé en paramètre.
 
     Args:
         cfg (dict): configuration chargée via `load_config()`
         args (argparse.Namespace, optional): paramètres passés au script. Defaults to None.
     Raises:
-        ValueError: _description_
+        ValueError: si la source est inconnue
     Returns:
-        object: _description_
+        object: instance de la source de données
     """
     if args.source == "ha_ws":
         return HAWebSocketSource(
@@ -307,7 +319,7 @@ def run_report(cfg: dict,
                args: argparse.Namespace = None,
                ) -> None:
     """ 
-        Lancement du rapport d'import/export/autoconsommation.
+    Lancement du rapport d'import/export/autoconsommation.
         1) collecte via source
         2) calcul import/export/autoconsommation
         3) écriture CSV horaire
@@ -322,10 +334,76 @@ def run_report(cfg: dict,
     Raises:
         RuntimeError: en cas d'erreur critique
     """
-    BASE_URL = cfg["BASE_URL"]
-    TOKEN = cfg["TOKEN"]
-    PV_ENTITY = cfg["PV_ENTITY"]
-    LOAD_ENTITY = cfg["LOAD_ENTITY"]
+    if args is None:
+        args = argparse.Namespace()
+        args.source = "ha_ws"
+    if not args.source:
+        args.source = "ha_ws"
+    if args.source not in ("ha_ws","csv","enlighten"):
+        raise ValueError(f"Source inconnue: {args.source}")
+    if args.source == "csv" and not cfg.get("IN_CSV"):
+        raise ValueError("Pour la source 'csv', le paramètre 'IN_CSV' doit être fourni dans la config")
+    if args.source == "enlighten":
+        for k in ("ENPHASE_API_KEY","ENPHASE_USER_ID","ENPHASE_SYSTEM_ID"):
+            if not cfg.get(k):
+                raise ValueError(f"Pour la source 'enlighten', le paramètre '{k}' doit être fourni dans la config")
+    if not cfg.get("OUT_CSV_DETAIL"):
+        raise ValueError("Le paramètre 'OUT_CSV_DETAIL' doit être fourni dans la config")
+    if not cfg.get("OUT_CSV_DAILY"):
+        raise ValueError("Le paramètre 'OUT_CSV_DAILY' doit être fourni dans la config")
+    if not cfg.get("START") or not cfg.get("END"):
+        raise ValueError("Les paramètres 'START' et 'END' doivent être fournis dans la config")
+    if not cfg.get("PV_ACTUAL_KW"):
+        raise ValueError("Le paramètre 'PV_ACTUAL_KW' doit être fourni dans la config")
+    if cfg["PV_ACTUAL_KW"] <= 0:
+        raise ValueError("Le paramètre 'PV_ACTUAL_KW' doit être > 0")
+    if cfg["TARGET_AC_MIN"] < 0 or cfg["TARGET_AC_MIN"] > 100:
+        raise ValueError("Le paramètre 'TARGET_AC_MIN' doit être dans [0,100]")
+    if cfg["TARGET_AC_MAX"] < 0 or cfg["TARGET_AC_MAX"] > 100:
+        raise ValueError("Le paramètre 'TARGET_AC_MAX' doit être dans [0,100]")
+    if cfg["TARGET_AC_MIN"] > cfg["TARGET_AC_MAX"]:
+        raise ValueError("Le paramètre 'TARGET_AC_MIN' doit être ≤ 'TARGET_AC_MAX'")
+    if cfg["TARGET_TC_MIN"] < 0 or cfg["TARGET_TC_MIN"] > 100:
+        raise ValueError("Le paramètre 'TARGET_TC_MIN' doit être dans [0,100]")
+    if cfg["BATTERY_EFF"] <= 0 or cfg["BATTERY_EFF"] > 1:
+        raise ValueError("Le paramètre 'BATTERY_EFF' doit être dans (0,1]")
+    if not cfg["BATTERY_SIZES"]:
+        raise ValueError("Le paramètre 'BATTERY_SIZES' doit contenir au moins une valeur")
+    if not cfg["PV_FACTORS"]:
+        raise ValueError("Le paramètre 'PV_FACTORS' doit contenir au moins une valeur")
+    if cfg["INITIAL_SOC"] < 0 or cfg["INITIAL_SOC"] > 1:
+        raise ValueError("Le paramètre 'INITIAL_SOC' doit être dans [0,1]")
+    if cfg["BATT_MIN_SOC"] < 0 or cfg["BATT_MIN_SOC"] > 1:
+        raise ValueError("Le paramètre 'BATT_MIN_SOC' doit être dans [0,1]")
+    if cfg["BATT_MIN_SOC"] >= 1.0:
+        raise ValueError("Le paramètre 'BATT_MIN_SOC' doit être < 1.0")
+    if cfg["BATT_MIN_SOC"] >= cfg["INITIAL_SOC"]:
+        raise ValueError("Le paramètre 'BATT_MIN_SOC' doit être < 'INITIAL_SOC'")
+    if cfg["MAX_DISCHARGE_KW_PER_HOUR"] <= 0:
+        raise ValueError("Le paramètre 'MAX_DISCHARGE_KW_PER_HOUR' doit être > 0")
+    if not isinstance(cfg["ALLOW_DISCHARGE_IN_HC"], bool):
+        raise ValueError("Le paramètre 'ALLOW_DISCHARGE_IN_HC' doit être booléen (true/false)")
+    if not isinstance(cfg["GRID_CHARGE_IN_HC"], bool):  
+        raise ValueError("Le paramètre 'GRID_CHARGE_IN_HC' doit être booléen (true/false)")
+    if not isinstance(cfg["GRID_HOURS"], list) or not all(isinstance(h,int) and 0<=h<=23 for h in cfg["GRID_HOURS"]):
+        raise ValueError("Le paramètre 'GRID_HOURS' doit être une liste d'entiers entre 0 et 23")
+    if cfg["GRID_TARGET_SOC"] < 0 or cfg["GRID_TARGET_SOC"] > 1:
+        raise ValueError("Le paramètre 'GRID_TARGET_SOC' doit être dans [0,1]")
+    if cfg["GRID_CHARGE_LIMIT"] <= 0:
+        raise ValueError("Le paramètre 'GRID_CHARGE_LIMIT' doit être > 0")
+    if cfg["GRID_TARGET_SOC"] <= cfg["BATT_MIN_SOC"]:
+        raise ValueError("Le paramètre 'GRID_TARGET_SOC' doit être > 'BATT_MIN_SOC'")
+    if cfg["GRID_CHARGE_IN_HC"] and not cfg["GRID_HOURS"]:
+        raise ValueError("Si 'GRID_CHARGE_IN_HC' est true, 'GRID_HOURS' doit contenir au moins une heure")
+    if cfg["GRID_CHARGE_IN_HC"] and cfg["GRID_TARGET_SOC"] <= cfg["INITIAL_SOC"]:
+        raise ValueError("Si 'GRID_CHARGE_IN_HC' est true, 'GRID_TARGET_SOC' doit être > 'INITIAL_SOC'")
+    if not LOCAL_TZ and (not args.source or args.source == "ha_ws"):
+        raise RuntimeError("zoneinfo indisponible : installe Python ≥ 3.9")
+    if args.source == "ha_ws" and not cfg.get("SSL_VERIFY", False):
+        ssl._create_default_https_context = ssl._create_unverified_context
+        ui.warning("La vérification SSL est désactivée (SSL_VERIFY=false)")
+
+    # Paramètres courants
     START = cfg["START"]
     END = cfg["END"]
     OUT_CSV_DETAIL = cfg["OUT_CSV_DETAIL"]
@@ -346,7 +424,11 @@ def run_report(cfg: dict,
         self_used = min(pv, ld)
         export = max(0.0, pv - self_used)
         imp    = max(0.0, ld - self_used)
-        rows.append({"date": h["date"], "pv_diff": pv, "load_diff": ld, "import": imp, "export": export})
+        rows.append({"date": h["date"],
+                     "pv_diff": pv,
+                     "load_diff": ld,
+                     "import": imp,
+                     "export": export})
 
     # CSV horaire
     with open(OUT_CSV_DETAIL, "w", newline="") as f:
@@ -396,8 +478,9 @@ def run_report(cfg: dict,
 # =========================
 def compute_stats(rows:list) -> dict:
     """
-        Calcule les statistiques globales sur une liste de lignes horaires
-        contenant au minimum 'pv' et 'load', optionnellement 'export' et 'import'.
+    Calcule les statistiques globales sur une liste de lignes horaires
+    contenant au minimum 'pv' et 'load', optionnellement 'export' et 'import'.
+
     Args:
         rows (list): liste des lignes horaires [{'date', 'pv', 'load', 'export'?, 'import'?}]
     Returns:
@@ -420,8 +503,8 @@ def compute_stats(rows:list) -> dict:
     pv_used = max(0.0, pv - exp)
     
     # Bornes de sécurité (imprécisions / incohérences)
-    pv_used_capped_for_tc = min(pv_used, load)             # ne peut pas couvrir plus que la conso
-    pv_used_capped_for_ac = min(pv_used, pv)               # ne peut pas dépasser la production
+    pv_used_capped_for_tc = min(pv_used, load)   # ne peut pas couvrir plus que la conso
+    pv_used_capped_for_ac = min(pv_used, pv)     # ne peut pas dépasser la production
 
     # Pourcentage AC et TC (bornés à [0,100])
     ac = 100.0 * pv_used_capped_for_ac / max(pv, eps) if pv > eps else 0.0
@@ -440,7 +523,8 @@ def compute_stats(rows:list) -> dict:
 def simulate_pv_scale(rows:list,
                       factor:float,
                       ) -> list:
-    """ Renvoie une nouvelle liste de rows avec la production PV multipliée par `factor`.
+    """ 
+    Renvoie une nouvelle liste de rows avec la production PV multipliée par `factor`.
 
     Args:
         rows (list): liste des lignes horaires [{'date', 'pv', 'load'}]
@@ -454,12 +538,26 @@ def simulate_pv_scale(rows:list,
 
 def _hour_from_iso(ts_str: str) -> int:
     """
-        Extrait l'heure locale (0-23) d'une chaîne de caractères ISO "YYYY-MM-DDTHH:MM:SS(+TZ?)"
+    Extrait l'heure locale (0-23) d'une chaîne de caractères ISO "YYYY-MM-DDTHH:MM:SS(+TZ?)"
         
     Args:
         ts_str (str): chaîne de caractères de date/heure
     Returns:
         int: heure locale (0-23), ou -1 en cas d'erreur
+    Raises:
+        None, renvoie -1 en cas d'erreur
+    
+    Note: ne gère pas les fuseaux horaires, on extrait juste HH.
+    1. "2025-06-01T14:30:00+02:00" -> 14
+    2. "2025-06-01T14:30:00Z" -> 14
+    3. "2025-06-01 14:30" -> 14
+    4. "2025-06-01" -> -1
+    5. "" -> -1
+    6. None -> -1
+    7. "invalid" -> -1
+    8. "2025-06-01T14:30:00.123456+02:00" -> 14
+    9. "2025-06-01T14:30:00.123456Z" -> 14
+    10. "2025-06-01 14:30:00" -> 14
     """
     try:
         # "YYYY-MM-DD HH:MM" ou ISO "YYYY-MM-DDTHH:MM:SS(+TZ?)"
@@ -484,8 +582,8 @@ def simulate_battery(rows,
                      allow_discharge_in_hc=True,
                      ) -> list:
     """
-        Simule l'utilisation d'une batterie sur une période entière
-        en partant d'un SoC initial, sans remise à zéro quotidienne.
+    Simule l'utilisation d'une batterie sur une période entière
+    en partant d'un SoC initial, sans remise à zéro quotidienne.
 
         rows                    : liste des mesures horaires [{'date', 'pv', 'load'}]
         batt_kwh                : capacité totale de la batterie (kWh)
@@ -556,10 +654,6 @@ def simulate_battery(rows,
     # autorise la recharge sur le réseau en heures creuses (22h-6h) avec une cible de SoC de 80% et une limite de charge réseau de 3 kW
     simulated = simulate_battery(data, batt_kwh=15, eff=0.9, initial_soc=0.0, grid_charge=True, grid_hours=list(range(22,24))+list(range(0,6)), grid_target_soc=0.8, grid_charge_limit=3.0)
     -------------------------------------------------------------------------------------------
-    Raises:
-        ValueError: si les paramètres sont invalides
-    Returns:
-        list: liste des lignes horaires avec simulation batterie
     """
     if batt_kwh <= 0:
         out=[]
@@ -687,16 +781,19 @@ def simulate_battery(rows,
 
 
 def run_simu(cfg: dict,
-             args=None,
+             args: argparse.Namespace=None,
              ) -> None:
     """
-    Lancement de la simulation
-        1) lit le CSV horaire produit par report
-        2) calcule la situation actuelle (sans batterie)
-        3) si `--override`, simule la batterie avec les paramètres forcés
-           sinon, teste toutes les combinaisons de PV et batterie
-        4) affiche les résultats
-        5) écrit un CSV horaire détaillé pour la simulation retenue
+    Lancement de la simulation de batterie :
+    1) lit le CSV horaire produit par report
+    2) calcule la situation actuelle (sans batterie)
+    3) si `--override`, simule la batterie avec les paramètres forcés
+        sinon, teste toutes les combinaisons de PV et batterie
+    4) affiche les résultats
+    5) écrit un CSV horaire détaillé pour la simulation retenue
+    6) écrit un CSV journalier pour la simulation retenue
+    7) affiche un résumé
+    
     Args:
         cfg (dict): configuration chargée
         args (argparse.Namespace, optional): paramètres passés au script. Defaults to None.
@@ -705,6 +802,67 @@ def run_simu(cfg: dict,
     Raises:
         RuntimeError: en cas d'erreur critique
     """
+    if args is None:
+        args = argparse.Namespace()
+        args.override = False
+    if args.override not in (True, False):
+        raise ValueError(f"Paramètre override invalide: {args.override}")
+    if not cfg.get("OUT_CSV_DETAIL"):
+        raise ValueError("Le paramètre 'OUT_CSV_DETAIL' doit être fourni dans la config")
+    if not cfg.get("OUT_CSV_SIMU"):
+        raise ValueError("Le paramètre 'OUT_CSV_SIMU' doit être fourni dans la config")
+    if not cfg.get("START") or not cfg.get("END"):  
+        raise ValueError("Les paramètres 'START' et 'END' doivent être fournis dans la config")
+    if not cfg.get("PV_ACTUAL_KW"):
+        raise ValueError("Le paramètre 'PV_ACTUAL_KW' doit être fourni dans la config")
+    if cfg["PV_ACTUAL_KW"] <= 0:
+        raise ValueError("Le paramètre 'PV_ACTUAL_KW' doit être > 0")
+    if cfg["TARGET_AC_MIN"] < 0 or cfg["TARGET_AC_MIN"] > 100:
+        raise ValueError("Le paramètre 'TARGET_AC_MIN' doit être dans [0,100]")
+    if cfg["TARGET_AC_MAX"] < 0 or cfg["TARGET_AC_MAX"] > 100:
+        raise ValueError("Le paramètre 'TARGET_AC_MAX' doit être dans [0,100]")
+    if cfg["TARGET_AC_MIN"] > cfg["TARGET_AC_MAX"]:
+        raise ValueError("Le paramètre 'TARGET_AC_MIN' doit être ≤ 'TARGET_AC_MAX'")
+    if cfg["TARGET_TC_MIN"] < 0 or cfg["TARGET_TC_MIN"] > 100:
+        raise ValueError("Le paramètre 'TARGET_TC_MIN' doit être dans [0,100]")
+    if cfg["BATTERY_EFF"] <= 0 or cfg["BATTERY_EFF"] > 1:
+        raise ValueError("Le paramètre 'BATTERY_EFF' doit être dans (0,1]")
+    if not cfg["BATTERY_SIZES"]:
+        raise ValueError("Le paramètre 'BATTERY_SIZES' doit contenir au moins une valeur")
+    if not cfg["PV_FACTORS"]:
+        raise ValueError("Le paramètre 'PV_FACTORS' doit contenir au moins une valeur")
+    if cfg["INITIAL_SOC"] < 0 or cfg["INITIAL_SOC"] > 1:
+        raise ValueError("Le paramètre 'INITIAL_SOC' doit être dans [0,1]")
+    if cfg["BATT_MIN_SOC"] < 0 or cfg["BATT_MIN_SOC"] > 1:
+        raise ValueError("Le paramètre 'BATT_MIN_SOC' doit être dans [0,1]")
+    if cfg["BATT_MIN_SOC"] >= 1.0:
+        raise ValueError("Le paramètre 'BATT_MIN_SOC' doit être < 1.0")
+    if cfg["BATT_MIN_SOC"] >= cfg["INITIAL_SOC"]:
+        raise ValueError("Le paramètre 'BATT_MIN_SOC' doit être < 'INITIAL_SOC'")
+    if cfg.get("MAX_DISCHARGE_KW_PER_HOUR", 0.0) is not None and cfg["MAX_DISCHARGE_KW_PER_HOUR"] <= 0:
+        raise ValueError("Le paramètre 'MAX_DISCHARGE_KW_PER_HOUR' doit être > 0")
+    if not isinstance(cfg.get("ALLOW_DISCHARGE_IN_HC", False), bool):
+        raise ValueError("Le paramètre 'ALLOW_DISCHARGE_IN_HC' doit être booléen (true/false)")
+    if not isinstance(cfg.get("GRID_CHARGE_IN_HC", False), bool):  
+        raise ValueError("Le paramètre 'GRID_CHARGE_IN_HC' doit être booléen (true/false)")
+    if not isinstance(cfg.get("GRID_HOURS", []), list) or not all(isinstance(h,int) and 0<=h<=23 for h in cfg.get("GRID_HOURS", [])):
+        raise ValueError("Le paramètre 'GRID_HOURS' doit être une liste d'entiers entre 0 et 23")
+    if cfg.get("GRID_TARGET_SOC", 0.8) < 0 or cfg.get("GRID_TARGET_SOC", 0.8) > 1:
+        raise ValueError("Le paramètre 'GRID_TARGET_SOC' doit être dans [0,1]")
+    if cfg.get("GRID_CHARGE_LIMIT", 3.0) <= 0:
+        raise ValueError("Le paramètre 'GRID_CHARGE_LIMIT' doit être > 0")
+    if cfg.get("GRID_TARGET_SOC", 0.8) <= cfg["BATT_MIN_SOC"]:
+        raise ValueError("Le paramètre 'GRID_TARGET_SOC' doit être > 'BATT_MIN_SOC'")
+    if cfg.get("GRID_CHARGE_IN_HC", False) and not cfg.get("GRID_HOURS", []):
+        raise ValueError("Si 'GRID_CHARGE_IN_HC' est true, 'GRID_HOURS' doit contenir au moins une heure")
+    if cfg.get("GRID_CHARGE_IN_HC", False) and cfg.get("GRID_TARGET_SOC", 0.8) <= cfg["INITIAL_SOC"]:
+        raise ValueError("Si 'GRID_CHARGE_IN_HC' est true, 'GRID_TARGET_SOC' doit être > 'INITIAL_SOC'")
+    if not LOCAL_TZ and (not args.source or args.source == "ha_ws"):
+        raise RuntimeError("zoneinfo indisponible : installe Python ≥ 3.9") 
+    if args.source == "ha_ws" and not cfg.get("SSL_VERIFY", False):
+        ssl._create_default_https_context = ssl._create_unverified_context
+        ui.warning("La vérification SSL est désactivée (SSL_VERIFY=false)")
+    # paramètres courants
     IN_CSV          = cfg["OUT_CSV_DETAIL"]               # on lit le CSV horaire produit par report
     OUT_CSV         = cfg["OUT_CSV_SIMU"]                 # fichier de sortie CSV horaire
     TARGET_AC_MIN   = cfg["TARGET_AC_MIN"]                # cible d'autoconso minimum
@@ -741,7 +899,7 @@ def run_simu(cfg: dict,
         for r in rdr:
             rows.append({"date": r["date"], "pv": float(r["pv_diff"]), "load": float(r["load_diff"])})
 
-    # base
+    # situation actuelle sans batterie
     base_no_batt = simulate_battery(
         rows=rows,
         grid_hours=[0,1,2,3,4,5,22,23],
@@ -754,6 +912,7 @@ def run_simu(cfg: dict,
     )
     base_stats = compute_stats(base_no_batt)
 
+    # résumé de la situation actuelle
     ui.summary("Situation actuelle",
                base_stats["pv_tot"],
                base_stats["load_tot"],
@@ -767,7 +926,18 @@ def run_simu(cfg: dict,
 
     # si override, on force les paramètres
     if args.override:
+        # on applique le facteur PV
         scaled_rows = simulate_pv_scale(rows, PV_FACTOR)
+        # vérifications
+        if PV_FACTOR <= 0:
+            raise ValueError(f"Le paramètre forcé PV_FACTOR doit être > 0 (actuel: {PV_FACTOR})")
+        if BATTERY_KWH < 0:
+            raise ValueError(f"Le paramètre forcé BATTERY_KWH doit être ≥ 0 (actuel: {BATTERY_KWH})")
+        if BATTERY_KWH > 0 and BATT_MIN_SOC >= 1.0:
+            raise ValueError(f"Le paramètre 'BATT_MIN_SOC' doit être < 1.0 (actuel: {BATT_MIN_SOC})")
+        if BATTERY_KWH > 0 and BATT_MIN_SOC >= INITIAL_SOC:
+            raise ValueError(f"Le paramètre 'BATT_MIN_SOC' doit être < 'INITIAL_SOC' (actuel: {BATT_MIN_SOC} >= {INITIAL_SOC})")
+        # simulation
         sim = simulate_battery(
             rows=scaled_rows,
             grid_hours=GRID_HOURS,                          # Heures creuses
@@ -782,6 +952,7 @@ def run_simu(cfg: dict,
             grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
         )
 
+        # stats et résumé
         daily = aggregate_daily(sim)
         st  = compute_stats(sim)
         ui.summary(f"Simulation forcée (override) PV x{PV_FACTOR:g}, Batt {int(BATTERY_KWH)} kWh",
@@ -811,8 +982,11 @@ def run_simu(cfg: dict,
     # sinon on teste toutes les combinaisons
     results=[]
     for fct in PV_FACTORS:
+        # on applique le facteur PV
         scaled = simulate_pv_scale(rows, fct)
+        # pour chaque taille de batterie
         for batt_kwh in BATTERY_SIZES:
+            # simulation
             sim = simulate_battery(
                 rows=scaled,
                 grid_hours=GRID_HOURS,                          # Heures creuses
@@ -826,11 +1000,12 @@ def run_simu(cfg: dict,
                 grid_target_soc=GRID_TARGET_SOC,                # cible de SoC en HC
                 grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
             )
+            # stats
             daily = aggregate_daily(sim)
+            # stats globales
             st  = compute_stats(sim)
             results.append((fct, batt_kwh, st))
 
-    # CSV
     with open(OUT_CSV, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["pv_factor","battery_kWh","pv_tot_kWh","load_tot_kWh","import_kWh","export_kWh","AC_%","TC_%"])
@@ -844,7 +1019,7 @@ def run_simu(cfg: dict,
                         st["ac"], 
                         st["tc"]])
 
-    # filtrage selon seuils
+    # filtre les résultats qui passent les cibles
     passing = [(fct,b,st) for (fct,b,st) in results if (TARGET_AC_MIN <= st["ac"] <= TARGET_AC_MAX) and (st["tc"] >= TARGET_TC_MIN)]
     if passing:
         # on prend le premier qui passe (ou trie si tu veux un critère)
@@ -858,7 +1033,7 @@ def run_simu(cfg: dict,
         {"date": r["date"], "pv": float(r["pv"]) * pv_factor, "load": float(r["load"])}
         for r in rows
     ]
-    
+    # simule une dernière fois pour avoir les détails horaires
     sim = simulate_battery(
         rows=scaled_rows,
         grid_hours=GRID_HOURS,                          # Heures creuses
@@ -882,6 +1057,7 @@ def run_simu(cfg: dict,
         "pv_kwc": cfg.get("PV_ACTUAL_KW", 0.0),
         "scenario": f"PV x{pv_factor:g}, Batt {int(batt_kwh)} kWh",
     }
+    # CSV détaillé
     save_sim_detail(csv_detail_path, sim, context=context)
     
     # Affichage
@@ -896,6 +1072,7 @@ def csv_available_days(csv_path: str) -> list[str]:
     """
     Retourne la liste triée des jours (YYYY-MM-DD) présents dans le CSV "detail".
     On lit la colonne 'date' et on tronque à 10 caractères.
+
     Args:
         csv_path (str): chemin du CSV
     Returns:
@@ -918,7 +1095,9 @@ def csv_available_days(csv_path: str) -> list[str]:
 def csv_has_day(csv_path: str, 
                 day: str,
                 ) -> bool:
-    """ Vérifie si un jour donné (YYYY-MM-DD) est présent dans le CSV "detail".
+    """
+    Vérifie si un jour donné (YYYY-MM-DD) est présent dans le CSV "detail".
+
     Args:
         csv_path (str): chemin du CSV
         day (str): jour au format YYYY-MM-DD
@@ -942,6 +1121,7 @@ def run_plot(cfg: dict,
     4) affiche le contexte (paramètres de la simulation)
     5) affiche la légende
     6) affiche les définitions
+
     Args:
         cfg (dict): configuration chargée
         args (argparse.Namespace, optional): paramètres passés au script. Defaults to None.
@@ -950,7 +1130,17 @@ def run_plot(cfg: dict,
     Raises:
         RuntimeError: en cas d'erreur critique
     """
+    if args is None:
+        args = argparse.Namespace()
+    if not cfg.get("START") or not cfg.get("END"):  
+        raise ValueError("Les paramètres 'START' et 'END' doivent être fournis dans la config")
+    if not LOCAL_TZ:
+        raise RuntimeError("zoneinfo indisponible : installe Python ≥ 3.9") 
+    if not Path(cfg.get("OUT_CSV_SIM_DETAIL", "ha_energy_sim_detail.csv")).exists():
+        raise RuntimeError(f"Fichier horaire introuvable: {cfg.get('OUT_CSV_SIM_DETAIL','ha_energy_sim_detail.csv')}\nLance d'abord --mode simu.")
 
+    # jour à afficher
+    # priorité à --day
     # jour cible
     day = None
     if args and getattr(args, "day", None):
@@ -972,7 +1162,7 @@ def run_plot(cfg: dict,
 
     p_sim = Path(sim_csv_path)
     if not p_sim.exists():
-        ui.error(f"CSV introuvable: {p}\nGénère-le d'abord via --mode simu (save_sim_detail).")
+        ui.error(f"CSV introuvable: {p_sim}\nGénère-le d'abord via --mode simu (save_sim_detail).")
         return
 
     # chemin CSV de la prod/conso actuelle
@@ -1006,14 +1196,14 @@ def run_plot(cfg: dict,
         "grid_target_soc": cfg.get("GRID_TARGET_SOC", None),
     }
 
-    # Affichage
+    # Affichage des barres
     ui.plot_day_cli_bipolar_compare(
         base_csv_path=str(p_base),
         sim_csv_path=str(p_sim),
         day=day,
         days=days,
         stack_when_multi=False, # empiler si days>1
-        max_kwh=None,       # autoscale commun
+        max_kwh=None,           # autoscale commun
         step_kwh=0.2,
         col_width=2,
         gap=1,
@@ -1025,8 +1215,10 @@ def run_plot(cfg: dict,
 # CLI
 # =========================
 def main():
-    """ Point d'entrée principal du script.
-        Parse les arguments, charge la config et lance le mode demandé.
+    """ 
+    Point d'entrée principal du script.
+    Parse les arguments, charge la config et lance le mode demandé.
+
     Args:
         None
     Returns:
