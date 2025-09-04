@@ -2,6 +2,7 @@
 import json, os, sys, ssl, csv, argparse
 from pathlib import Path
 import csv
+from pprint import pprint
 from sources.ha_ws_api import HAWebSocketSource
 from sources.csv_file_api import CSVSource
 from sources.enlighten_api import EnlightenSource  # prêt pour plus tard
@@ -401,7 +402,7 @@ def run_report(cfg: dict,
         raise RuntimeError("zoneinfo indisponible : installe Python ≥ 3.9")
     if args.source == "ha_ws" and not cfg.get("SSL_VERIFY", False):
         ssl._create_default_https_context = ssl._create_unverified_context
-        ui.warning("La vérification SSL est désactivée (SSL_VERIFY=false)")
+        #ui.warning("La vérification SSL est désactivée (SSL_VERIFY=false)")
 
     # Paramètres courants
     START = cfg["START"]
@@ -501,14 +502,16 @@ def compute_stats(rows:list) -> dict:
     imp = sum(r.get("import",0.0) for r in rows)
     # PV réellement utilisé par le foyer (direct + via batterie)
     pv_used = max(0.0, pv - exp)
+    onsite  = max(load - imp, 0.0)
     
     # Bornes de sécurité (imprécisions / incohérences)
-    pv_used_capped_for_tc = min(pv_used, load)   # ne peut pas couvrir plus que la conso
+    #pv_used_capped_for_tc = min(pv_used, load)   # ne peut pas couvrir plus que la conso
     pv_used_capped_for_ac = min(pv_used, pv)     # ne peut pas dépasser la production
 
     # Pourcentage AC et TC (bornés à [0,100])
     ac = 100.0 * pv_used_capped_for_ac / max(pv, eps) if pv > eps else 0.0
-    tc = 100.0 * pv_used_capped_for_tc / max(load, eps) if load > eps else 0.0
+    #tc = 100.0 * pv_used_capped_for_tc / max(load, eps) if load > eps else 0.0
+    tc = 100.0 * onsite / max(load, eps) if load > eps else 0.0
 
     # Clamp final (au cas où)
     ac = max(0.0, min(100.0, ac))
@@ -861,7 +864,7 @@ def run_simu(cfg: dict,
         raise RuntimeError("zoneinfo indisponible : installe Python ≥ 3.9") 
     if args.source == "ha_ws" and not cfg.get("SSL_VERIFY", False):
         ssl._create_default_https_context = ssl._create_unverified_context
-        ui.warning("La vérification SSL est désactivée (SSL_VERIFY=false)")
+        #ui.warning("La vérification SSL est désactivée (SSL_VERIFY=false)")
     # paramètres courants
     IN_CSV          = cfg["OUT_CSV_DETAIL"]               # on lit le CSV horaire produit par report
     OUT_CSV         = cfg["OUT_CSV_SIMU"]                 # fichier de sortie CSV horaire
@@ -952,6 +955,7 @@ def run_simu(cfg: dict,
             grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
         )
 
+        pprint(sim)
         # stats et résumé
         daily = aggregate_daily(sim)
         st  = compute_stats(sim)
