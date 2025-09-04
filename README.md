@@ -11,8 +11,8 @@ Mon logement étant déjà équipé de panneaux photovoltaiques en autoconsommat
 <br />Cet outil a pour but :
 * de **récolter les données** de mon système domotique sur _une période de temps limitée_ (période d'étude).
 * Sur cette période d'étude, de **définir le meilleur compromis** en terme d'ajout de _production solaire_ et _stockage d'énergie_ en fonction de mes objectifs en _autoconsommation_ et _taux de couverture_ (autosuffisance).
-* Sur cette même période d'étude, de simuler ce scénario (meilleur compromis) ou un scénario forcé sur les données récoltées de mon système domotique.
-* D'afficher les résultats sous forme de graphes avec un Avant (valeurs actuelles)/Après (valeurs simulées).
+* Sur cette même période d'étude, de **simuler ce scénario** (meilleur compromis) ou **un scénario forcé** sur les données récoltées de mon système domotique.
+* **D'afficher les résultats sous forme de graphes** avec un Avant (valeurs actuelles)/Après (valeurs simulées).
 
 > [!WARNING]
 > Cet outil doit être utilisé à titre informatif et ne peux pas répondre avec une grande précision aux besoins exprimés.
