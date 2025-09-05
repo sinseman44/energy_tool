@@ -134,8 +134,11 @@ Il se crée facilement sur la page de sécurité du compte associé d'Home Assis
   "TOKEN": "XXXXXXXXXXXX"
 ```
 <br />
+
 Finalement, deux entités sont nécessaires pour récupérer les données de production et de consommation et doivent être renseignées dans le fichier de configuration JSON.<br />
-Par exemple pour un système Enphase, ces 2 entités vont ressembler à ca : `sensor.envoy_XXXXXXXXXXXX_production_d_energie_totale` et `sensor.envoy_XXXXXXXXXXXX_consommation_d_energie_totale`.
+
+Par exemple pour un système Enphase, ces 2 entités ont ce formalise :
+`sensor.envoy_XXXXXXXXXXXX_production_d_energie_totale` et `sensor.envoy_XXXXXXXXXXXX_consommation_d_energie_totale`.
 
 ## Fichier CSV
 ```csv
