@@ -282,16 +282,16 @@ Exemple d'affichage :<br />
 
 ## Graphes (plot)
 Les graphes reprennent l'aspect du dashboard Energie de Home Assistant.<br />
-* En abscisse : les heures de chaque jour de l'étude
-* En ordonnée : La mesure d'énérgie en kWh
-  * Sur la partie haute :
-    * En orange : La production consommée directement par le logement (graphes actuel et simulé)
-    * En violet : La décharge de la batterie consommée par le logement (graphe simulé)
-    * En bleu : L'importation du Grid consommé par le logement (graphes actuel et simulé)
-  * Sur la partie basse :
-    * En bleu clair : La charge de la batterie par le Grid (graphe simulé)
-    * En jaune : La charge de la batterie par les panneaux photovoltaiques (graphe simulé)
-    * En Blanc creme : L'export du surplus de production vers le Grid (graphes actuel et simulé)
+* **En abscisse** : les heures de chaque jour de l'étude
+* **En ordonnée** : La mesure d'énérgie en kWh
+  * Sur la partie _haute_ :
+    * En _orange_ : La production consommée directement par le logement (graphes actuel et simulé)
+    * En _violet_ : La décharge de la batterie consommée par le logement (graphe simulé)
+    * En _bleu_ : L'importation du Grid consommé par le logement (graphes actuel et simulé)
+  * Sur la partie _basse_ :
+    * En _bleu clair_ : La charge de la batterie par le Grid (graphe simulé)
+    * En _jaune_ : La charge de la batterie par les panneaux photovoltaiques (graphe simulé)
+    * En _Blanc creme_ : L'export du surplus de production vers le Grid (graphes actuel et simulé)
 
 ### Bipolaire simple (un CSV, un jour):
 ```bash
