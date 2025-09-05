@@ -658,6 +658,32 @@ def simulate_battery(rows,
     simulated = simulate_battery(data, batt_kwh=15, eff=0.9, initial_soc=0.0, grid_charge=True, grid_hours=list(range(22,24))+list(range(0,6)), grid_target_soc=0.8, grid_charge_limit=3.0)
     -------------------------------------------------------------------------------------------
     """
+    # Validation des paramètres
+    if eff <= 0 or eff > 1:
+        raise ValueError("eff doit être dans (0,1]")
+    if initial_soc < 0 or initial_soc > 1:
+        raise ValueError("initial_soc doit être dans [0,1]")
+    if soc_reserve < 0 or soc_reserve >= 1:
+        raise ValueError("soc_reserve doit être dans [0,1)")
+    if grid_target_soc < 0 or grid_target_soc > 1:
+        raise ValueError("grid_target_soc doit être dans [0,1]")
+    if grid_charge and grid_target_soc <= soc_reserve:
+        raise ValueError("Si grid_charge est True, grid_target_soc doit être > soc_reserve")
+    if charge_limit is not None and charge_limit <= 0:
+        raise ValueError("charge_limit doit être > 0 ou None")
+    if discharge_limit is not None and discharge_limit <= 0:
+        raise ValueError("discharge_limit doit être > 0 ou None")
+    if not isinstance(allow_discharge_in_hc, bool):
+        raise ValueError("allow_discharge_in_hc doit être booléen (true/false)")
+    if not isinstance(grid_charge, bool):
+        raise ValueError("grid_charge doit être booléen (true/false)")
+    if grid_charge and (not grid_hours or not all(isinstance(h,int) and 0<=h<=23 for h in grid_hours)):
+        raise ValueError("Si grid_charge est True, grid_hours doit être une liste d'entiers entre 0 et 23")
+    if grid_charge and grid_charge_limit <= 0:
+        raise ValueError("Si grid_charge est True, grid_charge_limit doit être > 0")
+    if not rows:
+        return []
+    # Si pas de batterie, on calcule juste import/export sans batterie
     if batt_kwh <= 0:
         out=[]
         for r in rows:
@@ -677,19 +703,21 @@ def simulate_battery(rows,
                 "pv_to_batt": 0.0
             })
         return out
-
+    # Initialisation
     grid_hours = set(grid_hours or [])
     soc_min = batt_kwh * max(0.0, min(1.0, soc_reserve))
     soc_max = batt_kwh
     soc = batt_kwh * max(0.0, min(1.0, initial_soc))
-
+    # Simulation horaire
     out=[]
     for r in rows:
         pv = float(r["pv"])
         load = float(r["load"])
         # 0) Déterminer si on est en HC (local)
         hour_local = _hour_from_iso(r["date"])
-        in_hc = grid_charge and (hour_local in grid_hours)
+        # Si l'heure ne peut être déterminée, on considère que ce n'est pas HC
+        allow_charge_in_hc = grid_charge and (hour_local in grid_hours)
+        in_hc = hour_local in grid_hours if hour_local >= 0 else False
 
         available_pv = pv
         remaining_load = load
@@ -707,8 +735,11 @@ def simulate_battery(rows,
 
         # 2) PV -> batterie (stockage) limité par capacité restante + limite horaire
         pv_in_limit = available_pv if charge_limit is None else min(available_pv, charge_limit)
+        # énergie pouvant être stockée côté batterie
         can_store_in = (soc_max - soc) / (eff if eff > 0 else 1.0)  # kWh côté entrée PV
+        # énergie effectivement stockée côté PV
         pv_to_batt = min(pv_in_limit, max(0.0, can_store_in))
+        # Charge effective côté batterie = pv_to_batt * eff
         if pv_to_batt > 0:
             soc += pv_to_batt * eff
             available_pv -= pv_to_batt
@@ -719,14 +750,20 @@ def simulate_battery(rows,
         #    on bloque aussi la décharge pour cette heure (priorité à la recharge)
         batt_out_limit = remaining_load if discharge_limit is None else min(remaining_load, discharge_limit)
         # provisoire, sera raffiné après charge réseau
-        can_discharge_now = (not in_hc) or allow_discharge_in_hc 
+        if not allow_charge_in_hc and allow_discharge_in_hc or not in_hc:
+            can_discharge_now = True
+        else:
+            can_discharge_now = False
         if batt_out_limit > 0 and can_discharge_now:
             # énergie disponible pour décharge côté batterie
             batt_can_out = max(0.0, soc - soc_min) # kWh *côté batterie*
             # énergie restituée au load = retiré_du_SoC * eff
             batt_to_load = min(batt_out_limit, batt_can_out * eff)
+            # mise à jour SoC
             if batt_to_load > 0:
+                # côté batterie, il faut retirer plus pour compenser le rendement
                 soc -= batt_to_load / (eff if eff > 0 else 1.0)
+                # mise à jour load restant
                 remaining_load -= batt_to_load
 
         # 4) Le reste du load est à importer
@@ -737,12 +774,19 @@ def simulate_battery(rows,
         
         # 6) Charge réseau en HC pour atteindre la cible (séparée du load)
         imp_grid = 0.0
-        if in_hc:
+        # Prioriser la recharge réseau uniquement si on est en HC
+        # et si la cible est supérieure au SoC actuel
+        if allow_charge_in_hc:
+            # déterminer la cible de SoC côté batterie
             target_soc = batt_kwh * max(0.0, min(1.0, grid_target_soc))
+            # ne recharger que si la cible est supérieure au SoC actuel
             if soc < target_soc:
+                # énergie nécessaire pour atteindre la cible côté batterie
                 need_batt_side = target_soc - soc                              # kWh côté batterie
+                # énergie nécessaire côté réseau (avant rendement)
                 grid_in = min(need_batt_side / (eff if eff > 0 else 1.0),      # kWh côté réseau
                               max(0.0, grid_charge_limit))
+                # limiter à la capacité restante côté batterie
                 if grid_in > 0:
                     soc += grid_in * eff
                     imp_grid += grid_in
@@ -752,7 +796,9 @@ def simulate_battery(rows,
                     if batt_to_load > 0:
                         # remettre le SoC comme s'il n'y avait pas eu de décharge
                         soc += batt_to_load / (eff if eff > 0 else 1.0)
+                        # remettre le load restant comme s'il n'y avait pas eu de décharge
                         remaining_load += batt_to_load
+                        # annuler la décharge
                         batt_to_load = 0.0
                         # le load restant devient de l'import
                         imp_load += remaining_load
