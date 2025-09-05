@@ -302,13 +302,26 @@ Exemple d'affichage :<br />
 Il est possible _qu'aucun scénario_ ne satisfait pas **les objectifs d'AC et TC** définis dans le fichier de configuration JSON pour une simulation non forcée sur la période définie par `report`.<br />
 Cela peut-être dû à plusieurs facteurs, exemple:
 * objectif d'autoconsommation (AC) trop contraint.
-* objectifs de taux de couverture (TC) trop élevé.
+* objectif de taux de couverture (TC) trop élevé.
   * Si, par exemple, on n'autorise pas la décharge de la batterie en HC, cela aura pour conséquence de faire chuter le TC.
 * la fourchette de tailles de batteries n'est pas suffisament grande.
-* la fourchette de facteur multiplicateur de PV n'est pas suffisament grande.
+* la fourchette de facteurs multiplicateurs de PV n'est pas suffisament grande.
 <br />
 
 ![example_simu_fail](assets/energy_tool_simu_fail_example.png)
+
+## Simulation décharge ou non en Heures Creuses
+Par défaut, la batterie déchargera automatiquement en Heures Pleines pour atteindre les objectifs d'autoconsommation et de taux de couverture, mais il est possible d'améliorer les résultats en déchargeant aussi la batterie en Heures Creuses à l'aide du paramètre `ALLOW_DISCHARGE_IN_HC` dans la configuration.
+Exemple : Pour le même scénario :
+* Vue de gauche : Sans décharge de la batterie en HC.
+* Vue de droite : Avec décharge de la batterie en HC.
+<br />
+
+> [!NOTE]
+> On remarque que le TC évolue en autorisant la décharge de la batterie en HC.
+> On remarque également que le facteur multiplicateur choisi n'est pas suffisant pour couvrir toute la consommation du logement sur ce jour.
+> On remarque que la production photovoltaique simulée n'a pas été suffisante pour recharger la batterie et ainsi couvrir tous les besoins de la journée. 
+![example_simu_discharge_or_not_in_hc](assets/energy_tool_simu_discharge_or_not_in_hc_example.png)
 
 # Modèle de simulation
 **Pour chaque heure h** :
