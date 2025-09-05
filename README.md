@@ -228,6 +228,7 @@ Exemple minimal à adapter à vos valeurs :
   "MAX_DISCHARGE_KW_PER_HOUR": 0.0
 }
 ```
+
 ## Champs importants
 * **BASE_URL/TOKEN**: connexion Home Assistant (mode `report` avec la source `ha_ws`).
 * **IN_CSV**: utilisation d'un fichier CSV (mode `report` avec la source `csv`)
@@ -280,14 +281,26 @@ Exemple d'affichage :<br />
 ![example_simu_override](assets/energy_tool_simu_override_example.png)
 
 ## Graphes (plot)
-* Bipolaire simple (un CSV, un jour):
+Les graphes reprennent l'aspect du dashboard Energie de Home Assistant.<br />
+* En abscisse : les heures de chaque jour de l'étude
+* En ordonnée : La mesure d'énérgie en kWh
+  * Sur la partie haute :
+    * En orange : La production consommée directement par le logement (graphes actuel et simulé)
+    * En violet : La décharge de la batterie consommée par le logement (graphe simulé)
+    * En bleu : L'importation du Grid consommé par le logement (graphes actuel et simulé)
+  * Sur la partie basse :
+    * En bleu clair : La charge de la batterie par le Grid (graphe simulé)
+    * En jaune : La charge de la batterie par les panneaux photovoltaiques (graphe simulé)
+    * En Blanc creme : L'export du surplus de production vers le Grid (graphes actuel et simulé)
+
+### Bipolaire simple (un CSV, un jour):
 ```bash
 python3 energy_tool.py --mode plot --config pv_config.json --day 2025-06-01
 ```
 Exemple d'affichage :<br />
 ![example_plot](assets/energy_tool_plot_example.png)
 
-* Comparatif Avant/Après
+### Comparatif Avant/Après
 ```bash
 python3 energy_tool.py --mode plot --config pv_config.json --day 2025-06-01 --days 2
 ```
