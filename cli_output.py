@@ -1058,16 +1058,16 @@ class ConsoleUI:
             None
         """
         unit = col_width + gap
-        #left = " " * 3 + " │"   # aligne sous les labels Y (4) et le séparateur vertical
+        left = " " * 3 + " │"   # aligne sous les labels Y (4) et le séparateur vertical
         
         # Pas d'espace avant: on commence directement par la barre verticale
-        left = "|"
+        #left = "|"
         # Labels horaires: 00..23 pour 24h, répétés si 48h (00..23 00..23)
         parts = []
         for idx in range(hours):
             h = idx % 24
             # rjust pour éviter l'espace initial ajouté par center()
-            parts.append(f"{h:02d}".rjust(unit))
+            parts.append(f"{h:02d}".ljust(unit))
 
         line = left + "".join(parts)
         if self.has_rich:
@@ -1929,7 +1929,10 @@ class ConsoleUI:
             if self.has_rich:
                 self.console.print(_title_cell(titles[0], 0))
             for line in base_grid:
-                self.console.print(line) if self.has_rich else print(line)
+                if self.has_rich:
+                    self.console.print(line)
+                else:
+                    print(line)
             self._print_x_axis_bipolar(col_width, gap, hours=hours)
             m_base = self._metrics_from_rows(base_rows, report=True)
             if self.has_rich:
@@ -1942,7 +1945,10 @@ class ConsoleUI:
             if self.has_rich:
                 self.console.print(_title_cell(titles[1], 0))
             for line in sim_grid:
-                self.console.print(line) if self.has_rich else print(line)
+                if self.has_rich:
+                    self.console.print(line)
+                else:
+                    print(line)
             self._print_x_axis_bipolar(col_width, gap, hours=hours)
             m_sim = self._metrics_from_rows(sim_rows, report=False)
             if self.has_rich:
