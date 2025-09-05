@@ -73,11 +73,12 @@ surplus injecté au réseau
 
 # Fonctionnalités
 * **Report** (mode `report`) : récupère l’historique PV/Conso, calcule import/export horaire et journalier.
-* **Simulation** (mode `simu`) : parcourt un espace de scénarios PV (facteur) × batteries selon vos objectifs (AC/TC), et produit le meilleur compromis.
+* **Simulation** (mode `simu`) : parcourt un espace de scénarios PV (facteur) × batterie selon vos objectifs (AC/TC), et produit le meilleur compromis.
+  * Il n'y a pas de reset journalier des paramètres de batterie simulée sur toute la période d'étude.
 * **Plot** (mode `plot`) :
   * graphe horaire bipolaire (consommation en haut / production en bas),
   * comparatif Avant/Après pour un jour donné,
-  * affichage multi-jours (24 h / 48 h …) avec empilement vertical.
+  * affichage multi-jours (24 h / 48 h) avec empilement vertical.
 
 # Prérequis
 * Python 3.10+
