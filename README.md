@@ -221,6 +221,9 @@ Exemple minimal à adapter à vos valeurs :
   "GRID_TARGET_SOC": 0.80,
   "GRID_CHARGE_LIMIT": 3.0,
 
+  "ALLOW_EXPORT": true,
+  "PV_CHARGE_LIMIT": 3.0,
+
   "INITIAL_SOC": 0.50,
   "BATT_MIN_SOC": 0.10,
 
@@ -241,6 +244,8 @@ Exemple minimal à adapter à vos valeurs :
 * **GRID_HOURS**: heures creuses (mode `simu`).
 * **GRID_TARGET_SOC**: Jusqu'à quel niveau de charge, on souhaite remonter la batterie (mode `simu`).
 * **GRID_CHARGE_LIMIT**: La puissance maximale de recharge par heure, en kWh (mode `simu`).
+* **ALLOW_EXPORT**: Autorisé ou non l'export sur le Grid (mode `simu`).
+* **PV_CHARGE_LIMIT**: Limité la capacité de charges des batteries en provenance du PV (mode `simu`).
 * **INITIAL_SOC**: état de charge initial de la batterie pour la période d'étude.
 * **BATT_MIN_SOC**: réserve non déchargeable de la batterie.
 * **DISCHARGE_KW_PER_HOUR**: limites (kWh par pas horaire). `0` = illimité
@@ -352,6 +357,14 @@ Avec le paramètre `GRID_CHARGE_IN_HC` dans la configuration, on peut simuler la
 > * On remarque lors des heures de charges batterie, que l'on tire sur le grid, la charge de la maison ainsi que la recharge de la batterie mais l'import reste quand même inférieur à la situation actuelle (sans batterie et moins de PV)<br />
 
 ![example_simu_charge_in_hc_48h](assets/energy_tool_simu_charge_in_hc_48h_example.png)
+
+## Simulation sans Export avec bride de la quantité PV injectée
+Avec le paramètre `ALLOW_EXPORT`, il est possible de restreindre la simulation à ne pas renvoyer d'energie sur le Grid (surplus de production photovoltaique).<br />
+Avec le paramètre `PV_CHARGE_LIMIT`, il est possible de limiter la quantité de photovoltaique injectée limitant la recharge de la batterie.<br />
+
+Dans cet exemple, pas d'export sur le Grid et une limite d'injection à 3 kWh toutes les heures :<br />
+![example_simu_no_export](assets/energy_tool_simu_no_export_pv_limit_example.png)
+![example_plot_no_export](assets/energy_tool_plot_no_export_pv_limit_example.png)
 
 # Modèle de simulation
 **Pour chaque heure h** :

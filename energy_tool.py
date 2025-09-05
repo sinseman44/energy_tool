@@ -583,6 +583,7 @@ def simulate_battery(rows,
                      soc_reserve=0.10,
                      initial_soc=0.0,
                      allow_discharge_in_hc=True,
+                     allow_export=True,
                      ) -> list:
     """
     Simule l'utilisation d'une batterie sur une période entière
@@ -600,6 +601,7 @@ def simulate_battery(rows,
         grid_charge_limit       : puissance max de charge réseau en HC (kW)
         charge_limit            : puissance max de charge batterie (kW) (None = illimité)
         discharge_limit         : puissance max de décharge batterie (kW) (None = illimité)
+        allow_export            : autoriser l'export vers le réseau (True/False)
     Returns:
         list: liste des lignes horaires avec simulation batterie
         chaque élément contient au minimum :
@@ -623,8 +625,13 @@ def simulate_battery(rows,
         Si `allow_discharge_in_hc` est False, la batterie ne peut pas se décharger en HC.
         Si `charge_limit` ou `discharge_limit` sont fournis, ils limitent respectivement la puissance de charge et de décharge (kW).
         Si `grid_charge` est True, la batterie tente de se recharger sur le réseau en HC pour atteindre `grid_target_soc`,
-        limité par `grid_charge_limit`.
+        à une puissance limité par `grid_charge_limit`.
+        Si `allow_export` est False, l'export vers le réseau est interdit (export forcé à 0).
+        La période de simulation doit idéalement être horaire (1 heure entre chaque ligne).
+    Voir les exemples ci-dessous pour d'autres durées.
         Le calcul d'import/export prend en compte la batterie et les recharges réseau en HC.
+    Note: les valeurs de `pv` et `load` dans `rows` sont considérées comme des énergies (kWh) sur la période horaire.
+    Note: si la période n'est pas exactement horaire, les valeurs sont considérées comme des énergies sur la période donnée.
     Note: les valeurs de puissance (kW) sont considérées comme des énergies (kWh) sur une période horaire.
     1 kW sur 1 heure = 1 kWh
     1 kW sur 30 minutes = 0.5 kWh
@@ -656,6 +663,14 @@ def simulate_battery(rows,
     # Simule une batterie de 15 kWh avec un rendement de 90%, un SoC initial de 0%,
     # autorise la recharge sur le réseau en heures creuses (22h-6h) avec une cible de SoC de 80% et une limite de charge réseau de 3 kW
     simulated = simulate_battery(data, batt_kwh=15, eff=0.9, initial_soc=0.0, grid_charge=True, grid_hours=list(range(22,24))+list(range(0,6)), grid_target_soc=0.8, grid_charge_limit=3.0)
+    # Simule une batterie de 10 kWh avec un rendement de 90%, un SoC initial de 50%,
+    # interdit la décharge en heures creuses, autorise la recharge sur le réseau en heures creuses (22h-6h)
+    simulated = simulate_battery(data, batt_kwh=10, eff=0.9, initial_soc=0.5, allow_discharge_in_hc=False, grid_charge=True, grid_hours=list(range(22,24))+list(range(0,6)), grid_target_soc=0.8, grid_charge_limit=3.0)
+    # Simule une batterie de 10 kWh avec un rendement de 90%, un SoC initial de 50%,
+    # interdit l'export vers le réseau
+    simulated = simulate_battery(data, batt_kwh=10, eff=0.9, initial_soc=0.5, allow_export=False)
+    # Simule une batterie de 0 kWh (pas de batterie), pour obtenir import/export sans batterie
+    simulated = simulate_battery(data, batt_kwh=0, eff=0.9, initial_soc=0.5)
     -------------------------------------------------------------------------------------------
     """
     # Validation des paramètres
@@ -683,6 +698,9 @@ def simulate_battery(rows,
         raise ValueError("Si grid_charge est True, grid_charge_limit doit être > 0")
     if not rows:
         return []
+    if not all(isinstance(r, dict) and "date" in r and "pv" in r and "load" in r for r in rows):
+        raise ValueError("rows doit être une liste de dictionnaires contenant au minimum 'date', 'pv' et 'load'")
+
     # Si pas de batterie, on calcule juste import/export sans batterie
     if batt_kwh <= 0:
         out=[]
@@ -769,8 +787,12 @@ def simulate_battery(rows,
         # 4) Le reste du load est à importer
         imp_load = max(0.0, remaining_load)
 
-        # 5) Surplus PV restant = export
-        export = max(0.0, available_pv)
+        # 5) Surplus PV restant = export si autorisé
+        if allow_export:
+            export = max(0.0, available_pv)
+        else:
+            # forcer l'export à 0 : le surplus PV non utilisé est perdu
+            export = 0.0
         
         # 6) Charge réseau en HC pour atteindre la cible (séparée du load)
         imp_grid = 0.0
@@ -810,7 +832,6 @@ def simulate_battery(rows,
         # 8) Import total = load + recharge HC
         #    Export total = surplus PV
         #    (la batterie est un tampon interne)
-        # 9) Stockage des résultats
         imp = imp_load + imp_grid
 
         out.append({
@@ -911,6 +932,7 @@ def run_simu(cfg: dict,
     if args.source == "ha_ws" and not cfg.get("SSL_VERIFY", False):
         ssl._create_default_https_context = ssl._create_unverified_context
         #ui.warning("La vérification SSL est désactivée (SSL_VERIFY=false)")
+    
     # paramètres courants
     IN_CSV          = cfg["OUT_CSV_DETAIL"]               # on lit le CSV horaire produit par report
     OUT_CSV         = cfg["OUT_CSV_SIMU"]                 # fichier de sortie CSV horaire
@@ -929,13 +951,15 @@ def run_simu(cfg: dict,
         float(cfg.get("MAX_DISCHARGE_KW_PER_HOUR", 0.0)) or None
     )
     ALLOW_DISCHARGE_IN_HC = cfg.get("ALLOW_DISCHARGE_IN_HC", False)
-    GRID_CHARGE_IN_HC    = cfg.get("GRID_CHARGE_IN_HC", False)
-    GRID_HOURS           = cfg.get("GRID_HOURS", [0,1,2,3,4,5,22,23])  # Heures creuses par défaut
-    GRID_TARGET_SOC      = float(cfg.get("GRID_TARGET_SOC", 0.8))
-    GRID_CHARGE_LIMIT    = float(cfg.get("GRID_CHARGE_LIMIT", 3.0))
+    GRID_CHARGE_IN_HC     = cfg.get("GRID_CHARGE_IN_HC", False)
+    GRID_HOURS            = cfg.get("GRID_HOURS", [0,1,2,3,4,5,22,23])  # Heures creuses par défaut
+    GRID_TARGET_SOC       = float(cfg.get("GRID_TARGET_SOC", 0.8))
+    GRID_CHARGE_LIMIT     = float(cfg.get("GRID_CHARGE_LIMIT", 3.0))
+    ALLOW_EXPORT          = cfg.get("ALLOW_EXPORT", True)
+    PV_CHARGE_LIMIT       = float(cfg.get("PV_CHARGE_LIMIT", 3.0)) 
     # paramètres forcés si `--override`
-    PV_FACTOR       = float(cfg.get("SIM_SCENARIO", {}).get("PV_FACTOR", 1.0))
-    BATTERY_KWH     = float(cfg.get("SIM_SCENARIO", {}).get("BATTERY_KWH", 0.0))
+    PV_FACTOR             = float(cfg.get("SIM_SCENARIO", {}).get("PV_FACTOR", 1.0))
+    BATTERY_KWH           = float(cfg.get("SIM_SCENARIO", {}).get("BATTERY_KWH", 0.0))
 
     if not Path(IN_CSV).exists():
         print(f"[ERREUR] Fichier horaire introuvable: {IN_CSV}\nLance d'abord --mode report.")
@@ -957,7 +981,8 @@ def run_simu(cfg: dict,
         soc_reserve=0.0,            # SoC ignoré
         initial_soc=0.0,            # SoC ignoré
         discharge_limit=None,       # SoC ignoré
-        allow_discharge_in_hc=False # Pas de batterie
+        allow_discharge_in_hc=False, # Pas de batterie
+        allow_export=True,          # export autorisé
     )
     base_stats = compute_stats(base_no_batt)
 
@@ -998,14 +1023,16 @@ def run_simu(cfg: dict,
             allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC,    # Permet la décharge en heure creuse
             grid_charge=GRID_CHARGE_IN_HC,                  # Permet la recharge en HC
             grid_target_soc=GRID_TARGET_SOC,                # cible de SoC en HC
-            grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
+            grid_charge_limit=GRID_CHARGE_LIMIT,            # limite de charge en HC
+            allow_export=ALLOW_EXPORT,                      # autorise ou non l'export vers le réseau
+            charge_limit=PV_CHARGE_LIMIT                    # limite de charge PV (None = illimité)
         )
 
         #pprint(sim)
         # stats et résumé
         daily = aggregate_daily(sim)
         st  = compute_stats(sim)
-        ui.summary(f"Simulation forcée (override) PV x{PV_FACTOR:g}, Batt {int(BATTERY_KWH)} kWh",
+        ui.summary(f"Simulation forcée (override) PV x{PV_FACTOR:g}, Batt {int(BATTERY_KWH)} kWh, Export : {'Oui' if ALLOW_EXPORT else 'Non'}",
                      st["pv_tot"],
                      st["load_tot"],
                      st["import_tot"],
@@ -1048,7 +1075,9 @@ def run_simu(cfg: dict,
                 allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC,    # Permet la décharge en heure creuse
                 grid_charge=GRID_CHARGE_IN_HC,                  # Permet la recharge en HC
                 grid_target_soc=GRID_TARGET_SOC,                # cible de SoC en HC
-                grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
+                grid_charge_limit=GRID_CHARGE_LIMIT,            # limite de charge en HC
+                allow_export=ALLOW_EXPORT,                      # autorise ou non l'export vers le réseau
+                charge_limit=PV_CHARGE_LIMIT                    # limite de charge PV (None = illimité)
             )
             # stats
             daily = aggregate_daily(sim)
@@ -1095,7 +1124,9 @@ def run_simu(cfg: dict,
         allow_discharge_in_hc=ALLOW_DISCHARGE_IN_HC,    # Permet la décharge en heure creuse
         grid_charge=GRID_CHARGE_IN_HC,                  # Permet la recharge en HC
         grid_target_soc=GRID_TARGET_SOC,                # cible de SoC en HC
-        grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
+        grid_charge_limit=GRID_CHARGE_LIMIT,            # limite de charge en HC
+        allow_export=ALLOW_EXPORT,                      # autorise ou non l'export vers le réseau
+        charge_limit=PV_CHARGE_LIMIT                    # limite de charge PV (None = illimité)
     )
     # chemin de sortie configurable (ajoute la clé dans ton JSON)
     csv_detail_path = cfg.get("OUT_CSV_SIM_DETAIL", "ha_energy_sim_detail.csv")
