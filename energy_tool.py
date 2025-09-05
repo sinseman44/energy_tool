@@ -904,8 +904,8 @@ def run_simu(cfg: dict,
         raise ValueError("Le paramètre 'GRID_TARGET_SOC' doit être > 'BATT_MIN_SOC'")
     if cfg.get("GRID_CHARGE_IN_HC", False) and not cfg.get("GRID_HOURS", []):
         raise ValueError("Si 'GRID_CHARGE_IN_HC' est true, 'GRID_HOURS' doit contenir au moins une heure")
-    if cfg.get("GRID_CHARGE_IN_HC", False) and cfg.get("GRID_TARGET_SOC", 0.8) <= cfg["INITIAL_SOC"]:
-        raise ValueError("Si 'GRID_CHARGE_IN_HC' est true, 'GRID_TARGET_SOC' doit être > 'INITIAL_SOC'")
+    if cfg.get("GRID_CHARGE_IN_HC", False) and cfg.get("GRID_TARGET_SOC", 0.8) < cfg["INITIAL_SOC"]:
+        raise ValueError("Si 'GRID_CHARGE_IN_HC' est true, 'GRID_TARGET_SOC' doit être >= 'INITIAL_SOC'")
     if not LOCAL_TZ and (not args.source or args.source == "ha_ws"):
         raise RuntimeError("zoneinfo indisponible : installe Python ≥ 3.9") 
     if args.source == "ha_ws" and not cfg.get("SSL_VERIFY", False):
