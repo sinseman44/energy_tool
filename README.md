@@ -15,7 +15,7 @@ Mon logement étant déjà équipé de panneaux photovoltaiques en autoconsommat
 * **D'afficher les résultats sous forme de graphes** avec un Avant (valeurs actuelles)/Après (valeurs simulées).
 
 > [!WARNING]
-> Cet outil doit être utilisé à titre informatif et ne peux pas répondre avec une grande précision aux besoins exprimés.
+> _Cet outil doit être utilisé à titre informatif et ne peux pas répondre avec une grande précision aux besoins exprimés_.
 
 # Support
 
@@ -326,10 +326,18 @@ Exemple : Pour le même scénario :
 ![example_simu_discharge_or_not_in_hc](assets/energy_tool_simu_discharge_or_not_in_hc_example.png)
 
 ### Visualisation sur un graphe 48h
-Avec les mêmes paramètres de simulation, sur le graphe 48h, toutes les HP sont couvertes par la capacité de la batterie simulée.<br />
+Avec les mêmes paramètres de simulation, sur le graphe 48h, toutes les HP sont couvertes par la capacité de la batterie simulée sans décharge en HC.<br />
 Ce qui n'est pas le cas avec une décharge simulée également en HC.<br />
 
 ![example_simu_discharge_or_not_in_hc_48h](assets/energy_tool_simu_discharge_or_not_in_hc_48h_example.png)
+
+## Simulation d'une recharge en Heures Creuses
+Avec le paramètre `GRID_CHARGE_IN_HC` dans la configuration, on peut simuler la recharge de la batterie en Heure Creuse. Il est également possible de définir jusqu'à quel pourcentage maximum de batterie on souhaite recharger (`GRID_TARGET_SOC`) ainsi que la puissance limite par heure (`GRID_CHARGE_LIMIT`).
+
+> [!NOTE]
+> * On remarque lors des heures de charges batterie, que l'on tire sur le grid, la charge de la maison ainsi que la recharge de la batterie mais l'import reste quand même inférieur à la situation actuelle (sans batterie et moins de PV)<br />
+
+![example_simu_charge_in_hc_48h](assets/energy_tool_simu_charge_in_hc_48h_example.png)
 
 # Modèle de simulation
 **Pour chaque heure h** :
