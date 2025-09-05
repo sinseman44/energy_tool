@@ -90,8 +90,9 @@ def _fetch_change_or_sum(ws: any,
                          period: str = "hour",
                          ) -> tuple[list, str]:
     """
-        Tente de récupérer les points horaires en 'change' (delta) ou 'sum' (cumul)
-        depuis recorder/statistics_during_period.
+    Tente de récupérer les points horaires en 'change' (delta) ou 'sum' (cumul)
+    depuis recorder/statistics_during_period.
+
     Args:
         ws: WebSocket connecté
         entity (str): entity_id de la statistique HA

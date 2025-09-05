@@ -14,7 +14,7 @@ rich>=13.5.2              # Affichage enrichi en console (graphiques ASCII, pane
 websocket-client>=1.6.1    # Connexion en temps réel à Home Assistant
 
 # === Graphiques (optionnel, si tu veux ajouter des plots matplotlib plus tard) ===
-matplotlib>=3.7.2          # Pour les graphiques externes si nécessaires
+#matplotlib>=3.7.2          # Pour les graphiques externes si nécessaires
 
 # === Simulation énergétique ===
-scipy>=1.11.1              # Optionnel : optimisations et interpolations dans le simulateur
+#scipy>=1.11.1              # Optionnel : optimisations et interpolations dans le simulateur

@@ -84,11 +84,11 @@ surplus injecté au réseau
 * Home Assistant (optionnel, si vous utilisez la source `ha_ws`)
 * Un _long-lived access token_ Home Assistant (si vous utilisez la source `ha_ws`)
 ![ha_long_lived_token](assets/HA_long_lived_token.png)
-* Paquets Python:
+* Paquets principaux Python:
   * `websocket-client`, `rich`
 
 ```bash
-pip install websocket-client rich
+pip install -r requirements.txt
 ```
 
 # Installation
@@ -98,6 +98,71 @@ energy_tool.py
 cli_output.py
 ha_ws_api.py
 pv_config.json
+```
+
+# Sources pour le mode `report`
+Par défaut, l'outil a été initialement pensé pour récupérer les données via Home Assistant car celui-ci agrége mes données de production et de consommation électrique depuis que mon installation photovoltaique a été physiquement installée.<br />
+Il serait possible d'utiliser d'autres sources de données pour utiliser l'outil comme par exemple :
+* un fichier CSV (eg: EDF)
+* une API propriétaire du constructeur des onduleurs/micro-onduleurs (eg: enlighten)
+* etc ...
+
+## Home Assistant
+Il existe deux possibilités de communiquer avec Home Assistant depuis un outil externe:
+* une [API WebSocket](https://developers.home-assistant.io/docs/api/websocket/)
+* une [API REST](https://developers.home-assistant.io/docs/api/rest)
+
+Le choix s'est porté sur l'API WebSocket d'Home Assistant et donc l'implémentation d'un client WebSocket sur ce simulateur.
+Pour communiquer avec Home Assistant, nous avons besoin d'une URI formalisée de cette manière :
+* en local :
+```bash
+ws://<ADRESSE_IP>:8123/api/websocket
+```
+* a distance :
+```bash
+wss://<ADRESSE_SERVEUR_DOMOTIQUE>/api/websocket
+```
+Cette adresse doit être renseignée dans le fichier de configuration JSON:
+```json
+  "BASE_URL": "ws://homeassistant:8123/api/websocket",
+```
+<br />
+L'autentification sur le système domotique se fait grâce à un [jeton d'accès longue durée](https://developers.home-assistant.io/docs/auth_api/#long-lived-access-token).<br />
+Il se crée facilement sur la page de sécurité du compte associé d'Home Assistant et doit être renseigné dans le fichier de configuration JSON:
+```json
+  "TOKEN": "XXXXXXXXXXXX"
+```
+<br />
+Finalement, deux entités sont nécessaires pour récupérer les données de production et de consommation et doivent être renseignées dans le fichier de configuration JSON.<br />
+Par exemple pour un système Enphase, ces 2 entités vont ressembler à ca : `sensor.envoy_XXXXXXXXXXXX_production_d_energie_totale` et `sensor.envoy_XXXXXXXXXXXX_consommation_d_energie_totale`.
+
+## Fichier CSV
+```csv
+date,pv_diff,load_diff,import,export
+2025-06-01 00:00,0.0,1.6870000000008076,1.6870000000008076,0.0
+2025-06-01 01:00,0.0,1.1279999999997017,1.1279999999997017,0.0
+2025-06-01 02:00,0.0,0.6729999999997744,0.6729999999997744,0.0
+2025-06-01 03:00,0.0,0.6090000000003783,0.6090000000003783,0.0
+2025-06-01 04:00,0.0,0.523999999998523,0.523999999998523,0.0
+2025-06-01 05:00,0.0,0.4580000000014479,0.4580000000014479,0.0
+2025-06-01 06:00,0.0,0.49499999999989086,0.49499999999989086,0.0
+2025-06-01 07:00,0.035000000000081855,0.4459999999999127,0.41099999999983083,0.0
+2025-06-01 08:00,0.6099999999999,0.8519999999989523,0.2419999999990523,0.0
+2025-06-01 09:00,0.7890000000002146,1.590000000001055,0.8010000000008404,0.0
+2025-06-01 10:00,1.3969999999999345,1.7550000000001091,0.3580000000001746,0.0
+2025-06-01 11:00,1.0090000000000146,1.4929999999994834,0.48399999999946886,0.0
+2025-06-01 12:00,1.3230000000000928,2.4470000000001164,1.1240000000000236,0.0
+2025-06-01 13:00,1.3559999999999945,2.42200000000048,1.0660000000004857,0.0
+2025-06-01 14:00,1.2959999999998217,1.8369999999995343,0.5409999999997126,0.0
+2025-06-01 15:00,0.9710000000000036,1.068000000000211,0.09700000000020736,0.0
+2025-06-01 16:00,1.3650000000002365,1.4179999999996653,0.05299999999942884,0.0
+2025-06-01 17:00,1.1189999999996871,1.3109999999996944,0.19200000000000728,0.0
+2025-06-01 18:00,0.47299999999995634,0.6149999999997817,0.14199999999982538,0.0
+2025-06-01 19:00,0.16300000000001091,0.5120000000006257,0.3490000000006148,0.0
+2025-06-01 20:00,0.019000000000005457,1.2660000000005311,1.2470000000005257,0.0
+2025-06-01 21:00,0.0,1.1829999999999927,1.1829999999999927,0.0
+2025-06-01 22:00,0.0,0.7079999999996289,0.7079999999996289,0.0
+2025-06-01 23:00,0.0,0.6480000000001382,0.6480000000001382,0.0
 ```
 
 # Configuration
