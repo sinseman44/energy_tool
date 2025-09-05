@@ -298,7 +298,17 @@ Exemple d'affichage :<br />
 > Les graphes utilisent `Rich` : couleurs, panneaux de contexte (puissance PV, scénario, SoC initial, AC/TC, etc.).
 
 # Sorties générées
-TODO
+## Simulation echouée
+Il est possible _qu'aucun scénario_ ne satisfait pas **les objectifs d'AC et TC** définis dans le fichier de configuration JSON pour une simulation non forcée sur la période définie par `report`.<br />
+Cela peut-être dû à plusieurs facteurs, exemple:
+* objectif d'autoconsommation (AC) trop contraint.
+* objectifs de taux de couverture (TC) trop élevé.
+  * Si, par exemple, on n'autorise pas la décharge de la batterie en HC, cela aura pour conséquence de faire chuter le TC.
+* la fourchette de tailles de batteries n'est pas suffisament grande.
+* la fourchette de facteur multiplicateur de PV n'est pas suffisament grande.
+<br />
+
+![example_simu_fail](assets/energy_tool_simu_fail_example.png)
 
 # Modèle de simulation
 **Pour chaque heure h** :
