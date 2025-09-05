@@ -955,7 +955,7 @@ def run_simu(cfg: dict,
             grid_charge_limit=GRID_CHARGE_LIMIT             # limite de charge en HC
         )
 
-        pprint(sim)
+        #pprint(sim)
         # stats et résumé
         daily = aggregate_daily(sim)
         st  = compute_stats(sim)

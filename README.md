@@ -73,7 +73,7 @@ surplus injecté au réseau
 
 # Fonctionnalités
 * **Report** (mode `report`) : récupère l’historique PV/Conso, calcule import/export horaire et journalier.
-* **Simulation** (mode `simu`) : parcourt un espace de scénarios PV × batteries selon vos objectifs (AC/TC), et produit le meilleur compromis.
+* **Simulation** (mode `simu`) : parcourt un espace de scénarios PV (facteur) × batteries selon vos objectifs (AC/TC), et produit le meilleur compromis.
 * **Plot** (mode `plot`) :
   * graphe horaire bipolaire (consommation en haut / production en bas),
   * comparatif Avant/Après pour un jour donné,
@@ -193,6 +193,7 @@ Exemple minimal à adapter à vos valeurs :
 {
   "BASE_URL": "wss://votre-ha/api/websocket",
   "TOKEN": "XXXXXXXX",
+  "IN_CSV": "mon_fichier_source.csv"
   "PV_ENTITY": "sensor.envoy_xxx_production_d_energie_totale",
   "LOAD_ENTITY": "sensor.envoy_xxx_consommation_d_energie_totale",
 
@@ -228,6 +229,7 @@ Exemple minimal à adapter à vos valeurs :
 ```
 ## Champs importants
 * **BASE_URL/TOKEN**: connexion Home Assistant (mode `report` avec la source `ha_ws`).
+* **IN_CSV**: utilisation d'un fichier CSV (mode `report` avec la source `csv`)
 * **PV_ENTITY/LOAD_ENTITY**: L'entité de production totale et de consommation totale d'Home Assistant (mode `report` avec la source `ha_ws`).
 * **START/END**: fenêtre d'étude (ISO local sans `Z` pour éviter les décalages).
 * **TARGET_AC_MIN/TARGET_AC_MAX/TARGET_TC_MIN**: objectifs de sélection des scénarios pour l'autoconsommation et le taux de couverture (mode `simu`).
@@ -256,12 +258,25 @@ python3 energy_tool.py --mode report --config pv_config.json --source csv
 Exemple d'affichage :<br />
 ![example_report](assets/energy_tool_report_example.png)
 
-## Simulation (sélectionne les scénarios qui atteignent vos objectifs)
+## Simulation (sélectionne les scénarios qui atteignent les objectifs)
 ```bash
 python3 energy_tool.py --mode simu --config pv_config.json
 ```
 Exemple d'affichage :<br />
 ![example_simu](assets/energy_tool_simu_example.png)
+
+### Simulation forcée (Scénario forcé dans le fichier de configuration JSON)
+```bash
+python3 energy_tool.py --mode simu --config pv_config.json --override true
+```
+Exemple d'affichage :<br />
+```json
+  "SIM_SCENARIO": {
+    "PV_FACTOR": 1.5,
+    "BATTERY_KWH": 32
+  }
+```
+![example_simu_override](assets/energy_tool_simu_override_example.png)
 
 ## Graphes (plot)
 * Bipolaire simple (un CSV, un jour):
@@ -286,7 +301,7 @@ Exemple d'affichage :<br />
 TODO
 
 # Modèle de simulation
-Pour chaque heure h :
+**Pour chaque heure h** :
 1. PV → charges directes : `pv_direct = min(pv[h], load[h])`
 2. Batterie → charges : borné par SoC – réserve et `MAX_DISCHARGE_KW_PER_HOUR`
 3. Import = reste de charge si non couvert
