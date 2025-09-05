@@ -318,12 +318,18 @@ Exemple : Pour le même scénario :
 <br />
 
 > [!NOTE]
-> On remarque que le TC évolue en autorisant la décharge de la batterie en HC.<br />
-> On remarque également que le facteur multiplicateur choisi n'est pas suffisant pour couvrir toute la consommation du logement sur ce jour.<br />
-> On remarque que la production photovoltaique simulée n'a pas été suffisante pour recharger la batterie et ainsi couvrir tous les besoins de la journée.<br /> 
+> * On remarque que le TC évolue en autorisant la décharge de la batterie en HC.<br />
+> * On remarque également que le facteur multiplicateur choisi n'est pas suffisant pour couvrir toute la consommation du logement sur ce jour.<br />
+> * On remarque que la production photovoltaique simulée n'a pas été suffisante pour recharger la batterie et ainsi couvrir tous les besoins de la journée.<br /> 
 <br />
 
 ![example_simu_discharge_or_not_in_hc](assets/energy_tool_simu_discharge_or_not_in_hc_example.png)
+
+### Visualisation sur un graphe 48h
+Avec les mêmes paramètres de simulation, sur le graphe 48h, toutes les HP sont couvertes par la capacité de la batterie simulée.<br />
+Ce qui n'est pas le cas avec une décharge simulée également en HC.<br />
+
+![example_simu_discharge_or_not_in_hc_48h](assets/energy_tool_simu_discharge_or_not_in_hc_48h_example.png)
 
 # Modèle de simulation
 **Pour chaque heure h** :
@@ -352,5 +358,3 @@ Paramètres clés :
 Dans une stratégie d'optimisation de l'autoconsommation pour les tarifs HC/HP:
 * On met `GRID_CHARGE_IN_HC = true` pour profiter des HC pour charger avec le réseau et alimenter l'habitation avec le réseau.
 * On met `ALLOW_DISCHARGE_IN_HC = false` pour éviter de vider la batterie en HC et maximiser l'autoconsommation.
-
-# Graphes et console
