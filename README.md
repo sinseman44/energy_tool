@@ -321,6 +321,8 @@ Exemple : Pour le même scénario :
 > On remarque que le TC évolue en autorisant la décharge de la batterie en HC.<br />
 > On remarque également que le facteur multiplicateur choisi n'est pas suffisant pour couvrir toute la consommation du logement sur ce jour.<br />
 > On remarque que la production photovoltaique simulée n'a pas été suffisante pour recharger la batterie et ainsi couvrir tous les besoins de la journée.<br /> 
+<br />
+
 ![example_simu_discharge_or_not_in_hc](assets/energy_tool_simu_discharge_or_not_in_hc_example.png)
 
 # Modèle de simulation
