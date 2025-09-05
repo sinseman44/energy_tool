@@ -116,7 +116,7 @@ Le choix s'est porté sur l'API WebSocket d'Home Assistant et donc l'implémenta
 Pour communiquer avec Home Assistant, nous avons besoin d'une URI formalisée de cette manière :
 * en local :
 ```bash
-ws://<ADRESSE_IP>:8123/api/websocket
+ws://<ADRESSE_IP_LOCALE>:8123/api/websocket
 ```
 * a distance :
 ```bash
@@ -124,9 +124,10 @@ wss://<ADRESSE_SERVEUR_DOMOTIQUE>/api/websocket
 ```
 Cette adresse doit être renseignée dans le fichier de configuration JSON:
 ```json
-  "BASE_URL": "ws://homeassistant:8123/api/websocket",
+  "BASE_URL": "ws://homeassistant:8123/api/websocket"
 ```
 <br />
+
 L'autentification sur le système domotique se fait grâce à un [jeton d'accès longue durée](https://developers.home-assistant.io/docs/auth_api/#long-lived-access-token).<br />
 Il se crée facilement sur la page de sécurité du compte associé d'Home Assistant et doit être renseigné dans le fichier de configuration JSON:
 ```json
